@@ -1,0 +1,32 @@
+# Sandbox 失败 clone 残留 — 用户手动 rm -rf MiroFish/ 即可清理
+MiroFish/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Python（未来实现时用）
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Node（未来实现时用）
+node_modules/
+dist/
+.parcel-cache/
+
+# 环境与密钥
+.env
+.env.local
+*.key
+
+# 本地生成产物
+/projects/
+/tmp/
+*.log
