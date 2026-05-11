@@ -30,3 +30,18 @@ dist/
 /projects/
 /tmp/
 *.log
+
+# Python tooling
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+
+# Database files
+data/inkfish.db
+data/inkfish.db-shm
+data/inkfish.db-wal

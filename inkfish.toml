@@ -1,0 +1,35 @@
+[simulation]
+tick_interval_hours = 1
+max_steps = 0
+max_concurrent_llm_calls = 1   # P0 sync
+
+[characters]
+min_weight = 0.05
+max_updates_per_tick = 3
+interaction_max_limit = 10
+dpo_sigma = 0.1
+
+[directors]
+count = 1
+pacing_stale_threshold = 5
+
+[routing]
+default_provider = "deepseek"
+default_model = "deepseek-v4-pro"
+
+[storage]
+db_url = "sqlite:///data/inkfish.db"
+
+[hot_topics]
+enabled = false
+source = "manual"
+poll_interval_minutes = 60
+
+[writer]
+suggested_split_ticks = 50
+
+[llm]
+max_retries = 3
+temperature = 0.7
+max_tokens = 800
+log_level = "INFO"

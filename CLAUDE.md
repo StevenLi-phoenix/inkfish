@@ -16,6 +16,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `docs/plans/P0-plan.md` — P0 详细实施计划（D1–D11）
 - `docs/reviews/P0-D1.md`, `P0-D2.md` — D1/D2 交付审查
 
+## 自动维护
+
+每 15 分钟由 `/loop` 定时任务自动执行：
+1. 扫描项目当前状态（git status、新文件、测试结果）
+2. 更新本文件（CLAUDE.md）以反映最新进度
+3. `git add -A`（提交全部变更）并 commit
+
 ## 开发环境
 
 ```bash
