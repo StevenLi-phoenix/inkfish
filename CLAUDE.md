@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目状态
 
-**当前阶段：P0 进行中（D1–D9 完成，173 单元测试全绿，killer test 待 D10）**
+**当前阶段：P0 进行中（D1–D9 完成 + D8 hotfix，173 单元测试全绿，killer test 待 D10）**
 
 `external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
 
@@ -62,6 +62,7 @@ uv run mypy src/inkfish
 | M7 API — deps（lru_cache DI factories） | ✅ D9 完成 | `src/inkfish/api/deps.py` |
 | M7 API — 5 routers（health/simulation/tick/snapshot/character） | ✅ D9 完成 | `src/inkfish/api/routers/` |
 | M7 API — main.py（CORS + 5 routers 完整 app） | ✅ D9 完成 | `src/inkfish/api/main.py` |
+| D8 Hotfix — max_tokens 800→2500 + length-aware retry（v4-pro reasoner 预算） | ✅ 已修复 | `inkfish.toml`, `llm/retry.py` |
 | Killer test（live 10-tick + reset 验证） | ⬜ 待 D10 | `tests/live/` |
 
 ## 核心设计立场
