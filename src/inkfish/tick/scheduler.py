@@ -29,7 +29,7 @@ from inkfish.llm import DeepSeekClient, call_with_retry
 from inkfish.storage.models import ActionRow
 from inkfish.storage.repository import Repository
 from inkfish.storage.snapshot import SnapshotManager
-from inkfish.world.state import WorldState
+from inkfish.world.state import Character, WorldState
 
 if TYPE_CHECKING:
     from inkfish.config import SimConfig
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 _ACTION_TYPES = ["SPEAK", "THINK", "ACT", "MOVE_TO", "REACT", "DO_NOTHING"]
 
 
-def _build_action_tool_schema(char: "Character", world: WorldState) -> dict:
+def _build_action_tool_schema(char: Character, world: WorldState) -> dict:
     """Build per-character JSON Schema for the ``submit_action`` tool.
 
     Constraints encoded by the schema (enforced server-side by DeepSeek):
@@ -195,11 +195,14 @@ async def run_tick(
         actions: list[CharacterAction] = []
     else:
         first_action = await _call_one(prepared[0])
-        rest = await asyncio.gather(*[_call_one(item) for item in prepared[1:]]) if len(prepared) > 1 else []
+        if len(prepared) > 1:
+            rest = await asyncio.gather(*[_call_one(item) for item in prepared[1:]])
+        else:
+            rest = []
         actions = [first_action, *rest]
 
     # 5. Sequential mutation + persistence (deterministic order = world.characters).
-    for char, action in zip(world.characters, actions):
+    for char, action in zip(world.characters, actions, strict=True):
         # a. Mood always updates.
         char.current_mood = action.mood
 
@@ -384,7 +387,9 @@ def _log_simulation_summary(
     avg_latency = sum(r.latency_ms for r in run_logs) / len(run_logs)
     max_latency = max(r.latency_ms for r in run_logs)
     n_fallbacks = sum(1 for r in run_logs if r.finish_reason == "fallback_do_nothing")
-    n_retries = sum(1 for r in run_logs if r.attempt > 1 and r.finish_reason != "fallback_do_nothing")
+    n_retries = sum(
+        1 for r in run_logs if r.attempt > 1 and r.finish_reason != "fallback_do_nothing"
+    )
     cache_pct = (100.0 * total_cached / total_prompt) if total_prompt else 0.0
 
     logger.info(

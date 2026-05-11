@@ -47,6 +47,45 @@ _TRANSIENT_ERRORS = (RateLimitError, APIConnectionError, APITimeoutError)
 _CORRECTION_PREFIX = "上次响应非法 JSON: {error}. 只输出 JSON. 不要 markdown 围栏. 不要散文.\n\n"
 
 
+def _normalize_target(raw: str, allowed: set[str]) -> str | None:
+    """Fuzzy-match a decorated target to the allowed enum set.
+
+    v4-flash occasionally copies the perception block's ``[id=char_xxx]``
+    wrapper into the target field.  This helper strips common decorations
+    and substring-matches against ``allowed``.  Returns the canonical id,
+    or ``None`` if no match.
+
+    Recognised patterns:
+      "[id=char_lin]"     → "char_lin"
+      "id=char_lin"       → "char_lin"
+      "[char_lin]"        → "char_lin"
+      "char_lin (ENFP)"   → "char_lin" (longest substring match)
+    """
+    if raw in allowed:
+        return raw
+    s = raw.strip()
+    # [id=X] or [X] wrapper
+    if s.startswith("[") and s.endswith("]"):
+        inner = s[1:-1]
+        if inner.startswith("id="):
+            inner = inner[3:]
+        if inner in allowed:
+            return inner
+        s = inner
+    # id= prefix
+    if s.startswith("id="):
+        s = s[3:]
+        if s in allowed:
+            return s
+    # Substring fallback — longest match wins (avoids char_li shadowing char_lin)
+    candidates = sorted(
+        (c for c in allowed if c and c in raw),
+        key=len,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
 def _make_log_row(
     *,
     tick_id: int,
@@ -200,23 +239,33 @@ async def call_with_retry(
         assert result is not None  # mypy: guaranteed by successful _network_call
         action = parse_action_json(result.content, character_id, tick_id)
 
-        # Post-parse enum check: v4-flash doesn't enforce JSON Schema enum
-        # server-side, so we reject targets outside the allowed set (if provided)
-        # and force a retry attempt.  v4-pro enforces it; this check is a safety
-        # net for the flash + cheaper-model path.
+        # Post-parse enum check + fuzzy normalization.
+        # v4-flash doesn't enforce JSON Schema enum server-side, so LLMs
+        # sometimes emit decorated forms like "[id=char_zhao]" or
+        # "id=char_lin" by copying the bracket wrapper from perception block.
+        # We strip those wrappers and only fall through to retry if the
+        # normalised value is still not in enum.
         if (
             action is not None
             and allowed_targets is not None
             and action.target is not None
             and action.target not in allowed_targets
         ):
-            logger.warning(
-                "call_with_retry: action.target=%r not in allowed enum %s — "
-                "treating as parse failure to trigger retry",
-                action.target,
-                sorted(allowed_targets),
-            )
-            action = None
+            fixed = _normalize_target(action.target, allowed_targets)
+            if fixed is not None and fixed != action.target:
+                logger.info(
+                    "call_with_retry: fuzzy-matched target %r → %r",
+                    action.target, fixed,
+                )
+                action = action.model_copy(update={"target": fixed})
+            else:
+                logger.warning(
+                    "call_with_retry: action.target=%r not in allowed enum %s — "
+                    "treating as parse failure to trigger retry",
+                    action.target,
+                    sorted(allowed_targets),
+                )
+                action = None
 
         if action is not None:
             # SUCCESS — emit log and return.
