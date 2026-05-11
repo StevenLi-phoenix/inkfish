@@ -7,19 +7,29 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
-    """Secrets and environment-sourced configuration loaded from .env."""
+    """Secrets and environment-sourced configuration loaded from .env.
+
+    ``db_url`` can be overridden via the ``INKFISH_DB_URL`` environment variable
+    so tests can point at a temporary SQLite file without touching ``.env``.
+    """
 
     deepseek_api_key: SecretStr
-    db_url: str = "sqlite:///data/inkfish.db"
+    # Accepts INKFISH_DB_URL (preferred) or DB_URL from the environment, plus
+    # the in-code default.  Test isolation: set INKFISH_DB_URL=sqlite:///... in
+    # the test process environment to redirect to a temp file.
+    db_url: str = Field(
+        default="sqlite:///data/inkfish.db",
+        validation_alias=AliasChoices("INKFISH_DB_URL", "db_url"),
+    )
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
 
 @dataclass(frozen=True)

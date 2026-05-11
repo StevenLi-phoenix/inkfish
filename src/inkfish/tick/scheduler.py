@@ -1,0 +1,277 @@
+"""inkfish.tick.scheduler — P0 sequential tick loop.
+
+The scheduler is deliberately single-threaded in P0 for debuggability and
+determinism.  P2 will introduce asyncio.gather for concurrent character calls.
+
+Key invariants:
+- ``run_tick`` NEVER raises on per-character LLM failure.  ``call_with_retry``
+  guarantees a ``DO_NOTHING`` fallback, so the loop always produces exactly
+  one action per character.
+- Character in-memory state is mutated sequentially.  Later characters in the
+  same tick therefore "see" the state left by earlier ones (mood, location).
+  This is a P0-acceptable approximation; P1 will snapshot perceptions before
+  any mutations.
+- Every LLM call is logged via ``on_log=repo.log_llm`` before any parsing
+  occurs — raw API data is durable even if the process crashes mid-tick.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
+
+from inkfish.character.context import build_user_prompt, load_system_prompt
+from inkfish.character.schema import ActionType, CharacterAction
+from inkfish.llm import DeepSeekClient, call_with_retry
+from inkfish.storage.models import ActionRow
+from inkfish.storage.repository import Repository
+from inkfish.storage.snapshot import SnapshotManager
+from inkfish.world.state import WorldState
+
+if TYPE_CHECKING:
+    from inkfish.config import SimConfig
+
+logger = logging.getLogger(__name__)
+
+
+def _action_to_row(action: CharacterAction) -> ActionRow:
+    """Convert an immutable ``CharacterAction`` to an ORM ``ActionRow`` with a new UUID."""
+    return ActionRow(
+        id=str(uuid.uuid4()),
+        tick_id=action.tick_id,
+        character_id=action.character_id,
+        action_type=action.action_type.value,
+        content=action.content,
+        target=action.target,
+        mood=action.mood,
+        inner_thought=action.inner_thought,
+        triggers_interaction=action.triggers_interaction,
+        created_at=datetime.now(UTC),
+    )
+
+
+def run_tick(
+    tick_id: int,
+    world: WorldState,
+    client: DeepSeekClient,
+    repo: Repository,
+    snapshots: SnapshotManager,
+    *,
+    max_retries: int = 3,
+    temperature: float = 0.7,
+    max_tokens: int = 800,
+    parent_tick_id: int | None = None,
+) -> list[CharacterAction]:
+    """Execute a single simulation tick sequentially.
+
+    Steps:
+    1. Advance world state: tick_id → *tick_id*, sim_time += tick_interval_hours.
+    2. Load system prompt (cached after first call).
+    3. For each character (in list order):
+       a. Build user prompt.
+       b. Call LLM with retry — guaranteed to return a valid ``CharacterAction``.
+       c. Apply action to in-memory character (mood, location, appearance stats).
+       d. Persist action row.
+    4. Rebuild ``present_characters`` on each location.
+    5. Persist full snapshot.
+    6. Log per-tick cost summary.
+
+    Args:
+        tick_id:        The tick number to execute (must be > world.tick_id at call time).
+        world:          Mutable in-memory world state (mutated in-place).
+        client:         Configured ``DeepSeekClient``.
+        repo:           ``Repository`` for persisting actions and LLM logs.
+        snapshots:      ``SnapshotManager`` for persisting the post-tick snapshot.
+        max_retries:    Max LLM call attempts per character.
+        temperature:    Base sampling temperature (decays on retry in call_with_retry).
+        max_tokens:     Max completion tokens per LLM call.
+        parent_tick_id: Parent tick for branch/fork tracking (None on linear runs).
+
+    Returns:
+        List of ``CharacterAction`` produced this tick (one per character).
+    """
+    logger.info(
+        "Tick %d starting: %d characters, sim_time=%s",
+        tick_id,
+        len(world.characters),
+        world.sim_time.isoformat(),
+    )
+
+    # 1. Advance world state.
+    # Set tick_id directly to the target tick_id value.
+    # Advance sim_time by one tick_interval (we do NOT use advance_time() because
+    # that method also increments tick_id by the delta, which would double-count).
+    world.tick_id = tick_id
+    world.sim_time = world.sim_time + timedelta(hours=world.tick_interval_hours)
+
+    # 2. System prompt (module-level cache).
+    system_prompt = load_system_prompt()
+
+    # 3. Character loop.
+    actions: list[CharacterAction] = []
+    for char in world.characters:
+        user_prompt = build_user_prompt(char, world, tick_id, world.sim_time)
+
+        action = call_with_retry(
+            client=client,
+            system=system_prompt,
+            user=user_prompt,
+            character_id=char.id,
+            tick_id=tick_id,
+            on_log=repo.log_llm,
+            max_attempts=max_retries,
+            base_temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        # Apply action to in-memory character state.
+        # a. Mood always updates.
+        char.current_mood = action.mood
+
+        # b. MOVE_TO: update location only when target is a known location id.
+        if action.action_type == ActionType.MOVE_TO and action.target is not None:
+            known_loc_ids = {loc.id for loc in world.locations}
+            if action.target in known_loc_ids:
+                char.current_location = action.target
+                logger.debug(
+                    "Tick %d: char %s moved to location %s",
+                    tick_id,
+                    char.id,
+                    action.target,
+                )
+            else:
+                logger.debug(
+                    "Tick %d: char %s MOVE_TO unknown target %r — location unchanged",
+                    tick_id,
+                    char.id,
+                    action.target,
+                )
+
+        # c. Appearance stats.
+        char.appearance_count += 1
+        char.last_active_tick = tick_id
+
+        # d. Persist action.
+        repo.save_action(_action_to_row(action))
+        actions.append(action)
+
+        logger.info(
+            "Tick %d char %s → %s (mood=%r)",
+            tick_id,
+            char.id,
+            action.action_type.value,
+            action.mood,
+        )
+
+    # 4. Rebuild present_characters on each location.
+    for loc in world.locations:
+        loc.present_characters = [
+            c.id for c in world.characters
+            if c.current_location == loc.id and c.alive
+        ]
+
+    # 5. Persist snapshot.
+    snapshots.save_snapshot(
+        world,
+        tick_id,
+        action_count=len(actions),
+        parent_tick_id=parent_tick_id,
+    )
+
+    # 6. Per-tick cost summary.
+    _log_tick_summary(tick_id, repo)
+
+    return actions
+
+
+def _log_tick_summary(tick_id: int, repo: Repository) -> None:
+    """Log aggregate token/cost/latency stats for all LLM calls in *tick_id*."""
+    logs = repo.get_llm_logs(tick_id=tick_id)
+    if not logs:
+        logger.info("Tick %d: no LLM logs found (all fallbacks?)", tick_id)
+        return
+
+    total_prompt = sum(r.prompt_tokens for r in logs)
+    total_response = sum(r.response_tokens for r in logs)
+    total_cached = sum(r.cached_tokens for r in logs)
+    total_cost = sum(r.cost_usd for r in logs)
+    max_latency = max(r.latency_ms for r in logs)
+
+    logger.info(
+        "Tick %d summary: calls=%d prompt_tokens=%d response_tokens=%d "
+        "cached_tokens=%d cost_usd=%.6f max_latency_ms=%d",
+        tick_id,
+        len(logs),
+        total_prompt,
+        total_response,
+        total_cached,
+        total_cost,
+        max_latency,
+    )
+
+
+def run_simulation(
+    n_ticks: int,
+    *,
+    world: WorldState,
+    client: DeepSeekClient,
+    repo: Repository,
+    snapshots: SnapshotManager,
+    start_tick: int = 0,
+    sim_config: SimConfig | None = None,
+) -> list[CharacterAction]:
+    """Run *n_ticks* consecutive ticks starting at *start_tick* + 1.
+
+    Args:
+        n_ticks:     Number of ticks to execute.
+        world:       Mutable in-memory world state.
+        client:      Configured ``DeepSeekClient``.
+        repo:        Repository for persistence.
+        snapshots:   SnapshotManager for persistence.
+        start_tick:  The tick the world is already at.  Simulation runs ticks
+                     ``start_tick+1`` … ``start_tick+n_ticks`` (inclusive).
+        sim_config:  Optional SimConfig to pull temperature/max_tokens/max_retries
+                     from.  Uses scheduler defaults when None.
+
+    Returns:
+        Flat list of all ``CharacterAction`` produced across all ticks.
+    """
+    max_retries = 3
+    temperature = 0.7
+    max_tokens = 800
+    if sim_config is not None:
+        max_retries = sim_config.max_retries
+        temperature = sim_config.temperature
+        max_tokens = sim_config.max_tokens
+
+    all_actions: list[CharacterAction] = []
+
+    logger.info(
+        "run_simulation: n_ticks=%d start_tick=%d", n_ticks, start_tick
+    )
+
+    for i in range(n_ticks):
+        tick_id = start_tick + 1 + i
+        parent = start_tick if (i == 0 and start_tick > 0) else None
+
+        tick_actions = run_tick(
+            tick_id=tick_id,
+            world=world,
+            client=client,
+            repo=repo,
+            snapshots=snapshots,
+            max_retries=max_retries,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            parent_tick_id=parent,
+        )
+        all_actions.extend(tick_actions)
+
+    logger.info(
+        "run_simulation complete: %d ticks, %d total actions",
+        n_ticks,
+        len(all_actions),
+    )
+    return all_actions

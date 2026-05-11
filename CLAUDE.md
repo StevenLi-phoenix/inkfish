@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目状态
 
-**当前阶段：P0 进行中（D1–D5 完成，D6 进行中，125 单元测试全绿）**
+**当前阶段：P0 进行中（D1–D7 完成，D8 代码已落地，159 单元测试全绿）**
 
 `external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
 
@@ -53,9 +53,12 @@ uv run mypy src/inkfish
 | World State — query helpers (get_character/location, advance_time) | ✅ D6 完成 | `src/inkfish/world/state.py` |
 | World Seed — seed_loader（load_seed_file + seed_world） | ✅ D6 完成 | `src/inkfish/world/seed_loader.py` |
 | World Seed — data/seed/world.json（5 角色 + 1 地点） | ✅ D6 完成 | `data/seed/world.json` |
-| Tick Scheduler | ⬜ 待 D7 | `src/inkfish/tick/` |
-| M7 API（FastAPI REST） | ⬜ 待 D9 | `src/inkfish/api/` |
-| CLI（typer commands） | 🔧 占位 | `src/inkfish/cli.py` |
+| M3 Character — prompt builder（persona/memory/perception/system） | ✅ D7 完成 | `src/inkfish/character/context.py` |
+| System prompt（~536 chars，不含角色数据，确保 cache 命中） | ✅ D7 完成 | `prompts/character_system.txt` |
+| Tick Scheduler（run_tick / run_simulation，P0 单线程） | ✅ D8 完成 | `src/inkfish/tick/scheduler.py` |
+| CLI（seed/run/reset/list-snapshots/serve 完整命令） | ✅ D8 完成 | `src/inkfish/cli.py` |
+| Settings INKFISH_DB_URL 别名（测试隔离） | ✅ D8 完成 | `src/inkfish/config.py` |
+| M7 API（FastAPI app 占位，D9 接 routers） | 🔧 占位 | `src/inkfish/api/main.py` |
 
 ## 核心设计立场
 
@@ -141,7 +144,7 @@ M8 Frontend(React) → M7 API(FastAPI+SSE) → M5 Director / M6 Writer → M3 Ch
 | P7 | 多层空间 + 大规模：300 角色 + 多导演 |
 | P8+ | 实战写一本小说 |
 
-**当前阶段**：P0 进行中（D1–D6 完成，下一步 D7: Tick Scheduler）。
+**当前阶段**：P0 进行中（D1–D8 完成，下一步 D9: FastAPI routers + killer test）。
 
 ## 开发约定
 
