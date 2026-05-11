@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目状态
 
-**当前阶段：P0 进行中（D1–D9 完成 + D8 hotfix，173 单元测试全绿，killer test 待 D10）**
+**当前阶段：P0 Done 标准 100% 满足（D1–D10 完成），D11 live 自动化测试收尾中**
 
 `external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
 
@@ -63,7 +63,8 @@ uv run mypy src/inkfish
 | M7 API — 5 routers（health/simulation/tick/snapshot/character） | ✅ D9 完成 | `src/inkfish/api/routers/` |
 | M7 API — main.py（CORS + 5 routers 完整 app） | ✅ D9 完成 | `src/inkfish/api/main.py` |
 | D8 Hotfix — max_tokens 800→2500 + length-aware retry（v4-pro reasoner 预算） | ✅ 已修复 | `inkfish.toml`, `llm/retry.py` |
-| Killer test（live 10-tick + reset 验证） | ⬜ 待 D10 | `tests/live/` |
+| Killer test D10 — 端到端 10-tick live run（50/50 valid actions，$0.008） | ✅ D10 完成 | `docs/reviews/P0-D10.md` |
+| Killer test D11 — seed→run10→reset5→run5 自动化 live test | ⬜ 待 D11 | `tests/live/test_killer_reset.py` |
 
 ## 核心设计立场
 
@@ -149,7 +150,7 @@ M8 Frontend(React) → M7 API(FastAPI+SSE) → M5 Director / M6 Writer → M3 Ch
 | P7 | 多层空间 + 大规模：300 角色 + 多导演 |
 | P8+ | 实战写一本小说 |
 
-**当前阶段**：P0 进行中（D1–D9 完成，下一步 D10: killer test — live 10-tick + reset）。
+**当前阶段**：**P0 核心完成**（Done 标准 100% 满足）。D11 收尾：seed→run10→reset5→run5 自动化 live test。
 
 ## 开发约定
 

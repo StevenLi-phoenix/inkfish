@@ -45,3 +45,9 @@ build/
 data/inkfish.db
 data/inkfish.db-shm
 data/inkfish.db-wal
+data/inkfish_killer.db
+data/inkfish_killer.db-shm
+data/inkfish_killer.db-wal
+data/*.db
+data/*.db-shm
+data/*.db-wal
