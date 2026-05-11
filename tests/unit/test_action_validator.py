@@ -370,12 +370,23 @@ class TestParseActionJson:
         assert result is None
 
     # ------------------------------------------------------------------
-    # 27. Target-rule violation → None (SPEAK without target)
+    # 27. SPEAK without target → downgraded to ACT (broadcast intent)
     # ------------------------------------------------------------------
-    def test_parse_target_rule_violation_returns_none(self) -> None:
+    def test_parse_speak_without_target_downgrades_to_act(self) -> None:
         raw = _action_json(target=None)  # SPEAK without target
         result = parse_action_json(raw, "char_001", 0)
-        assert result is None
+        assert result is not None
+        assert result.action_type.value == "ACT"
+        assert result.target is None
+        assert result.triggers_interaction is False  # forced false on downgrade
+
+    def test_parse_react_without_target_downgrades_to_act(self) -> None:
+        # REACT without target → ACT (same broadcast logic)
+        raw = '{"action_type":"REACT","content":"Hmph!","target":null,'\
+              '"mood":"annoyed","inner_thought":"","triggers_interaction":false}'
+        result = parse_action_json(raw, "char_001", 0)
+        assert result is not None
+        assert result.action_type.value == "ACT"
 
     # ------------------------------------------------------------------
     # 28. Garbage input → None

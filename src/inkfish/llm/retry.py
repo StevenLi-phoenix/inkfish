@@ -93,6 +93,7 @@ async def call_with_retry(
     base_temperature: float = 0.7,
     max_tokens: int = 16384,
     tool_schema: dict | None = None,
+    allowed_targets: set[str] | None = None,
 ) -> CharacterAction:
     """Call DeepSeek with retry and JSON repair.
 
@@ -198,6 +199,24 @@ async def call_with_retry(
         # --- Attempt JSON parse ---
         assert result is not None  # mypy: guaranteed by successful _network_call
         action = parse_action_json(result.content, character_id, tick_id)
+
+        # Post-parse enum check: v4-flash doesn't enforce JSON Schema enum
+        # server-side, so we reject targets outside the allowed set (if provided)
+        # and force a retry attempt.  v4-pro enforces it; this check is a safety
+        # net for the flash + cheaper-model path.
+        if (
+            action is not None
+            and allowed_targets is not None
+            and action.target is not None
+            and action.target not in allowed_targets
+        ):
+            logger.warning(
+                "call_with_retry: action.target=%r not in allowed enum %s — "
+                "treating as parse failure to trigger retry",
+                action.target,
+                sorted(allowed_targets),
+            )
+            action = None
 
         if action is not None:
             # SUCCESS — emit log and return.

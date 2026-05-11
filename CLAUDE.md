@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目状态
 
-**🎉 P0 完成（D1–D12）+ P1 准备中** — 全面 async 化，tool-call 模式，173 单元测试全绿
+**🎉 P0 完成（D1–D12 + Hotfix v2）** — 速度 5×，缓存 95%，零 fallback，174 单元测试全绿
 
 `external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
 
@@ -70,6 +70,10 @@ uv run mypy src/inkfish
 | P1 准备 — tool-call 模式（complete_with_tool + _build_action_tool_schema） | ✅ 已完成 | `llm/deepseek.py`, `tick/scheduler.py` |
 | P1 准备 — max_tokens 2500→16384，timeout 60s→120s | ✅ 已完成 | `inkfish.toml`, `config.py` |
 | P1 准备 — cache-aware 调度（首角色顺序暖场→其余并发），INFO 级 LLM 指标日志 | ✅ 已完成 | `tick/scheduler.py`, `llm/retry.py` |
+| Hotfix v2 — perception 块字段重排（volatile 放末尾），cache 命中 0%→95% | ✅ 已完成 | `character/context.py` |
+| Hotfix v2 — SPEAK+empty target 自动降级为 ACT（广播兜底） | ✅ 已完成 | `character/validator.py` |
+| Hotfix v2 — Pydantic 后置 allowed_targets 校验（v4-flash 兜底） | ✅ 已完成 | `llm/retry.py` |
+| Hotfix v2 — 默认模型切 v4-flash（5× 速度），max_tokens 2000 | ✅ 已完成 | `inkfish.toml`, `config.py` |
 
 ## 核心设计立场
 
@@ -155,7 +159,7 @@ M8 Frontend(React) → M7 API(FastAPI+SSE) → M5 Director / M6 Writer → M3 Ch
 | P7 | 多层空间 + 大规模：300 角色 + 多导演 |
 | P8+ | 实战写一本小说 |
 
-**当前阶段**：**P0 完成，P1 基础设施铺设中**。全面 async 化（P2 并发预热）+ tool-call 强制结构化输出 + 大 token 预算。下一步：P1 互动 budget、感知系统、关系图。
+**当前阶段**：**P0 完成（含 Hotfix v2）**。v4-flash 默认（5× 速度），cache 95%，零 fallback，174 测试全绿。下一步：**P1** — 互动 budget、感知系统、关系图更新。
 
 ## 开发约定
 

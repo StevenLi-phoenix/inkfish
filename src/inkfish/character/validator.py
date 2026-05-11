@@ -206,6 +206,21 @@ def parse_action_json(raw: str, character_id: str, tick_id: int) -> CharacterAct
     if data.get("target") == "":
         data["target"] = None
 
+    # SPEAK / REACT without a target = broadcast intent.  Pydantic requires
+    # a non-null target for these action types, so we degrade them to ACT.
+    # The content is preserved (the character still "says" something verbally),
+    # just not directed at one specific recipient.  P1's interaction budget
+    # will treat targeted SPEAK differently from broadcast ACT.
+    if data.get("action_type") in ("SPEAK", "REACT") and data.get("target") is None:
+        logger.debug(
+            "parse_action_json: %s with no target for char=%s tick=%d → "
+            "downgrading to ACT (broadcast / non-targeted speech)",
+            data["action_type"], character_id, tick_id,
+        )
+        data["action_type"] = "ACT"
+        # ACT may have triggers_interaction=False (only SPEAK can set it True).
+        data["triggers_interaction"] = False
+
     try:
         return CharacterAction(**data)
     except Exception as exc:  # ValidationError or TypeError from extra fields via Pydantic

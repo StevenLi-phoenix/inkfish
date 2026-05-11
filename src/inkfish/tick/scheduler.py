@@ -169,6 +169,7 @@ async def run_tick(
 
     def _call_one(item: tuple) -> Any:
         char_, user_prompt, tool_schema = item
+        allowed = set(tool_schema["properties"]["target"]["enum"])
         return call_with_retry(
             client=client,
             system=system_prompt,
@@ -180,6 +181,7 @@ async def run_tick(
             base_temperature=temperature,
             max_tokens=max_tokens,
             tool_schema=tool_schema,
+            allowed_targets=allowed,
         )
 
     # 4. Cache-aware dispatch.

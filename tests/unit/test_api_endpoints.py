@@ -64,6 +64,7 @@ def _patch_llm(monkeypatch: pytest.MonkeyPatch) -> None:
         base_temperature: float = 0.7,
         max_tokens: int = 16384,
         tool_schema: dict | None = None,
+        allowed_targets: set[str] | None = None,
     ) -> CharacterAction:
         return fallback_do_nothing(character_id, tick_id)
 

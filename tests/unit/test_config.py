@@ -25,7 +25,7 @@ class TestLoadConfigReturnsSettingsAndSimConfig:
     ) -> None:
         monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-key-for-unit-tests")
         _, sim_cfg = load_config(repo_root / "inkfish.toml")
-        assert sim_cfg.model == "deepseek-v4-pro"
+        assert sim_cfg.model == "deepseek-v4-flash"
 
     def test_simconfig_llm_fields_from_toml(
         self, repo_root: Path, monkeypatch: pytest.MonkeyPatch
@@ -34,7 +34,7 @@ class TestLoadConfigReturnsSettingsAndSimConfig:
         _, sim_cfg = load_config(repo_root / "inkfish.toml")
         assert sim_cfg.max_retries == 3
         assert sim_cfg.temperature == pytest.approx(0.7)
-        assert sim_cfg.max_tokens == 16384  # v4-pro reasoning + tool args budget
+        assert sim_cfg.max_tokens == 2000  # v4-flash: no reasoning, just content + args
         assert sim_cfg.log_level == "INFO"
 
     def test_simconfig_simulation_fields_from_toml(

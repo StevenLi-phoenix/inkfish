@@ -101,6 +101,7 @@ def _patch_call_with_retry(
         base_temperature: float = 0.7,
         max_tokens: int = 16384,
         tool_schema: dict | None = None,
+        allowed_targets: set[str] | None = None,
     ) -> CharacterAction:
         calls.append(
             dict(

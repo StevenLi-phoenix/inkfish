@@ -15,7 +15,9 @@ pacing_stale_threshold = 5
 
 [routing]
 default_provider = "deepseek"
-default_model = "deepseek-v4-pro"
+# 角色 (M3) 用 v4-flash：非 reasoner，速度快 10×、成本同价但 max_tokens 用得少。
+# 未来 director (M5) + writer (M6) 用 v4-pro 走单独 routing rule。
+default_model = "deepseek-v4-flash"
 
 [storage]
 db_url = "sqlite:///data/inkfish.db"
@@ -31,8 +33,7 @@ suggested_split_ticks = 50
 [llm]
 max_retries = 3
 temperature = 0.7
-# v4-pro 是 reasoner 模型：reasoning_tokens 先消耗预算，content 才会输出。
-# 实测长 THINK 内容（如 INTP 角色）reasoning + arguments 可能超 5k+ tokens。
-# 16384 = 2^14 给充分余量；按实际 output tokens 计费，预算高不增加成本。
-max_tokens = 16384
+# v4-flash 非 reasoner：直接输出 content，无 reasoning_tokens 消耗。
+# 2000 给 content (~500 字) + tool_call 参数序列化 (~500 tokens) + 余量。
+max_tokens = 2000
 log_level = "INFO"

@@ -41,10 +41,10 @@ class SimConfig:
     """
 
     # [llm]
-    model: str = "deepseek-v4-pro"
+    model: str = "deepseek-v4-flash"
     max_retries: int = 3
     temperature: float = 0.7
-    max_tokens: int = 16384
+    max_tokens: int = 2000
     log_level: str = "INFO"
 
     # [simulation]
@@ -64,7 +64,7 @@ class SimConfig:
 
     # [routing]
     default_provider: str = "deepseek"
-    default_model: str = "deepseek-v4-pro"
+    default_model: str = "deepseek-v4-flash"
 
     # [hot_topics]
     hot_topics_enabled: bool = False

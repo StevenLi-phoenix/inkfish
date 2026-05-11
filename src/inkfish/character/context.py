@@ -135,12 +135,18 @@ def build_perception_block(
     else:
         others_section = "  在场其他人：（无）"
 
+    # Layout order matters for DeepSeek prefix cache.  Place STABLE fields
+    # (location, others present) FIRST so they stay in the cache prefix
+    # across ticks for the same character.  Place VOLATILE fields (sim_time,
+    # tick_id, mood) LAST so the prefix mismatch happens late.  Without this
+    # reordering, putting "时间：08:00" → "时间：09:00" at the front breaks
+    # prefix match at byte ~1500 and crushes cache hit to ~14%.
     return (
         f"当前感知：\n"
-        f"  时间：{_format_sim_time(sim_time)}\n"
-        f"  回合：tick {tick_id}\n"
         f"  地点：{loc_name} — {loc_desc}\n"
         f"{others_section}\n"
+        f"  时间：{_format_sim_time(sim_time)}\n"
+        f"  回合：tick {tick_id}\n"
         f"  你当前的心情：{character.current_mood}"
     )
 
