@@ -81,7 +81,7 @@ def _make_log_row(
     return row
 
 
-def call_with_retry(
+async def call_with_retry(
     client: DeepSeekClient,
     system: str,
     user: str,
@@ -91,20 +91,26 @@ def call_with_retry(
     on_log: Callable[[LLMLogRow], None],
     max_attempts: int = 3,
     base_temperature: float = 0.7,
-    max_tokens: int = 800,
+    max_tokens: int = 16384,
+    tool_schema: dict | None = None,
 ) -> CharacterAction:
     """Call DeepSeek with retry and JSON repair.
 
     Parameters:
         client:           Configured ``DeepSeekClient`` instance.
         system:           System prompt.
-        user:             User prompt (MUST contain "json" for DeepSeek JSON mode).
+        user:             User prompt (MUST contain "json" for DeepSeek JSON mode
+                          when ``tool_schema`` is None).
         character_id:     Trusted character identifier — overrides LLM output.
         tick_id:          Current simulation tick — overrides LLM output.
         on_log:           Callback invoked with each ``LLMLogRow`` (success or failure).
         max_attempts:     Maximum outer loop iterations (default 3).
         base_temperature: Starting temperature; decremented by 0.1 each attempt.
         max_tokens:       Max completion tokens per call.
+        tool_schema:      Optional JSON Schema for tool-call mode.  When provided
+                          the call uses ``complete_with_tool`` (enum constraints
+                          enforced server-side); otherwise falls back to
+                          ``complete_json``.
 
     Returns:
         A valid ``CharacterAction``.  Never raises.
@@ -113,9 +119,9 @@ def call_with_retry(
     current_user = user
     # DeepSeek v4-pro is a reasoner: reasoning_tokens consume the budget before
     # any content is emitted.  If finish_reason == "length" with empty content,
-    # we expand the budget on the next attempt (capped at 8000, DeepSeek's max).
+    # we expand the budget on the next attempt (capped at 32k).
     current_max_tokens = max_tokens
-    _MAX_TOKENS_CEIL = 8000
+    _MAX_TOKENS_CEIL = 32768
 
     for attempt in range(1, max_attempts + 1):
         temperature = max(0.0, base_temperature - (attempt - 1) * 0.1)
@@ -133,13 +139,21 @@ def call_with_retry(
             stop=stop_after_attempt(5),
             reraise=True,
         )
-        def _network_call(
+        async def _network_call(
             _bound_user: str = _user,
             _bound_temp: float = _temp,
             _bound_max_tok: int = _max_tok,
         ) -> LLMResult:
             """Execute one HTTP call; returns LLMResult."""
-            return client.complete_json(
+            if tool_schema is not None:
+                return await client.complete_with_tool(
+                    system,
+                    _bound_user,
+                    tool_schema,
+                    temperature=_bound_temp,
+                    max_tokens=_bound_max_tok,
+                )
+            return await client.complete_json(
                 system,
                 _bound_user,
                 temperature=_bound_temp,
@@ -151,7 +165,7 @@ def call_with_retry(
         network_error: str | None = None
 
         try:
-            result = _network_call()
+            result = await _network_call()
         except Exception as exc:
             # Transient errors exhausted all inner retries, or a non-transient
             # error occurred (e.g. 5xx).  Log and advance to next outer attempt.

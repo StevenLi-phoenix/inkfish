@@ -43,7 +43,7 @@ router = APIRouter(tags=["simulation"])
     status_code=202,
     summary="Start simulation (P0: BLOCKING synchronous call)",
 )
-def start(
+async def start(
     req: StartSimulationRequest,
     repo: Repository = Depends(get_repository),  # noqa: B008
     snapshots: SnapshotManager = Depends(get_snapshot_manager),  # noqa: B008
@@ -84,7 +84,7 @@ def start(
         len(world.characters),
     )
 
-    run_simulation(
+    await run_simulation(
         req.n_ticks,
         world=world,
         client=client,

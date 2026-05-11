@@ -44,7 +44,7 @@ class SimConfig:
     model: str = "deepseek-v4-pro"
     max_retries: int = 3
     temperature: float = 0.7
-    max_tokens: int = 2500
+    max_tokens: int = 16384
     log_level: str = "INFO"
 
     # [simulation]

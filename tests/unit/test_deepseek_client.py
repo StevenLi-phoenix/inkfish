@@ -69,14 +69,14 @@ def _client(model: str = "deepseek-v4-pro") -> DeepSeekClient:
 # ---------------------------------------------------------------------------
 
 
-def test_complete_json_success() -> None:
+async def test_complete_json_success() -> None:
     """Mock returns a valid JSON string; LLMResult has correct content + tokens."""
     content = '{"action_type": "THINK", "content": "hello"}'
     body = _make_response(content=content, prompt_tokens=100, completion_tokens=50)
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client().complete_json(
+        result = await _client().complete_json(
             system="You output json.",
             user="Return a json object.",
         )
@@ -94,7 +94,7 @@ def test_complete_json_success() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_complete_json_extracts_cached_tokens_from_details_path() -> None:
+async def test_complete_json_extracts_cached_tokens_from_details_path() -> None:
     """``prompt_tokens_details.cached_tokens`` → LLMResult.cached_tokens."""
     body = _make_response(
         prompt_tokens=1000,
@@ -104,7 +104,7 @@ def test_complete_json_extracts_cached_tokens_from_details_path() -> None:
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client().complete_json(system="sys", user="return json")
+        result = await _client().complete_json(system="sys", user="return json")
 
     assert result.cached_tokens == 42
 
@@ -114,7 +114,7 @@ def test_complete_json_extracts_cached_tokens_from_details_path() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_complete_json_extracts_cached_tokens_from_extra_path() -> None:
+async def test_complete_json_extracts_cached_tokens_from_extra_path() -> None:
     """Legacy ``prompt_cache_hit_tokens`` in usage root → LLMResult.cached_tokens."""
     body = _make_response(
         prompt_tokens=1000,
@@ -124,7 +124,7 @@ def test_complete_json_extracts_cached_tokens_from_extra_path() -> None:
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client().complete_json(system="sys", user="return json")
+        result = await _client().complete_json(system="sys", user="return json")
 
     assert result.cached_tokens == 42
 
@@ -134,13 +134,13 @@ def test_complete_json_extracts_cached_tokens_from_extra_path() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_complete_json_no_cached_returns_zero() -> None:
+async def test_complete_json_no_cached_returns_zero() -> None:
     """Usage with no cache fields → cached_tokens == 0."""
     body = _make_response(prompt_tokens=500, completion_tokens=200)
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client().complete_json(system="sys", user="return json")
+        result = await _client().complete_json(system="sys", user="return json")
 
     assert result.cached_tokens == 0
 
@@ -150,7 +150,7 @@ def test_complete_json_no_cached_returns_zero() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_complete_json_computes_cost_correctly() -> None:
+async def test_complete_json_computes_cost_correctly() -> None:
     """Known token counts → cost_usd matches formula for deepseek-v4-pro (75% off).
 
     Rates (per M, with 75% discount):
@@ -172,13 +172,13 @@ def test_complete_json_computes_cost_correctly() -> None:
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client("deepseek-v4-pro").complete_json(system="sys", user="return json")
+        result = await _client("deepseek-v4-pro").complete_json(system="sys", user="return json")
 
     expected = (800 * 0.075 + 200 * 0.0075 + 500 * 0.125) / 1_000_000
     assert abs(result.cost_usd - expected) < 1e-10
 
 
-def test_compute_cost_directly() -> None:
+async def test_compute_cost_directly() -> None:
     """_compute_cost helper produces correct values independently."""
     cost = _compute_cost("deepseek-v4-pro", 1000, 500, 200)
     expected = (800 * 0.075 + 200 * 0.0075 + 500 * 0.125) / 1_000_000
@@ -190,7 +190,7 @@ def test_compute_cost_directly() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_complete_json_raises_on_rate_limit() -> None:
+async def test_complete_json_raises_on_rate_limit() -> None:
     """HTTP 429 should raise openai.RateLimitError to the caller."""
     from openai import RateLimitError
 
@@ -199,7 +199,7 @@ def test_complete_json_raises_on_rate_limit() -> None:
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(429, json=error_body))
         with pytest.raises(RateLimitError):
-            _client().complete_json(system="sys", user="return json")
+            await _client().complete_json(system="sys", user="return json")
 
 
 # ---------------------------------------------------------------------------
@@ -207,14 +207,14 @@ def test_complete_json_raises_on_rate_limit() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_complete_json_raises_on_timeout() -> None:
+async def test_complete_json_raises_on_timeout() -> None:
     """Request timeout should raise openai.APITimeoutError."""
     from openai import APITimeoutError
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(side_effect=httpx.TimeoutException("timed out"))
         with pytest.raises(APITimeoutError):
-            _client().complete_json(system="sys", user="return json")
+            await _client().complete_json(system="sys", user="return json")
 
 
 # ---------------------------------------------------------------------------
@@ -222,33 +222,35 @@ def test_complete_json_raises_on_timeout() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_latency_ms_is_positive() -> None:
+async def test_latency_ms_is_positive() -> None:
     """DeepSeekClient records a non-zero latency even for near-instant mocked calls."""
     body = _make_response()
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client().complete_json(system="sys", user="return json")
+        result = await _client().complete_json(system="sys", user="return json")
 
     # Even a mock call takes > 0 ms due to Python overhead.
     assert result.latency_ms >= 0
 
 
-def test_latency_ms_reflects_actual_duration(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_latency_ms_reflects_actual_duration(monkeypatch: pytest.MonkeyPatch) -> None:
     """Monkeypatched time.monotonic simulates a 200ms call → latency_ms >= 200."""
     body = _make_response()
 
-    # Simulate monotonic returning values 0.200 apart.
-    _calls: list[float] = [0.0, 0.200]
+    # Simulate monotonic: first call returns 0.0, subsequent calls return 0.200.
+    # (The async SDK may invoke time.monotonic internally for timeout tracking.)
+    _state = {"calls": 0}
 
     def fake_monotonic() -> float:
-        return _calls.pop(0)
+        _state["calls"] += 1
+        return 0.0 if _state["calls"] == 1 else 0.200
 
     monkeypatch.setattr("inkfish.llm.deepseek.time.monotonic", fake_monotonic)
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client().complete_json(system="sys", user="return json")
+        result = await _client().complete_json(system="sys", user="return json")
 
     assert result.latency_ms >= 200
 
@@ -258,13 +260,13 @@ def test_latency_ms_reflects_actual_duration(monkeypatch: pytest.MonkeyPatch) ->
 # ---------------------------------------------------------------------------
 
 
-def test_complete_json_finish_reason_length() -> None:
+async def test_complete_json_finish_reason_length() -> None:
     """finish_reason='length' is propagated into LLMResult."""
     body = _make_response(finish_reason="length")
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client().complete_json(system="sys", user="return json")
+        result = await _client().complete_json(system="sys", user="return json")
 
     assert result.finish_reason == "length"
 
@@ -274,7 +276,7 @@ def test_complete_json_finish_reason_length() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_details_path_takes_priority_over_extra_path() -> None:
+async def test_details_path_takes_priority_over_extra_path() -> None:
     """When both paths present, prompt_tokens_details.cached_tokens wins."""
     body = _make_response(
         prompt_tokens=1000,
@@ -285,6 +287,6 @@ def test_details_path_takes_priority_over_extra_path() -> None:
 
     with respx.mock:
         respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(200, json=body))
-        result = _client().complete_json(system="sys", user="return json")
+        result = await _client().complete_json(system="sys", user="return json")
 
     assert result.cached_tokens == 99

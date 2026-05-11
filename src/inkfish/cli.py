@@ -76,6 +76,8 @@ def run(
     ),
 ) -> None:
     """Run the simulation for N ticks."""
+    import asyncio
+
     from inkfish.config import load_config
     from inkfish.llm import DeepSeekClient
     from inkfish.storage.db import create_db_engine, init_db, make_session_factory
@@ -97,14 +99,16 @@ def run(
         raise typer.Exit(code=1)
 
     client = DeepSeekClient(settings.deepseek_api_key, model=sim_cfg.model)
-    actions = run_simulation(
-        ticks,
-        world=world,
-        client=client,
-        repo=repo,
-        snapshots=snapshots,
-        start_tick=start,
-        sim_config=sim_cfg,
+    actions = asyncio.run(
+        run_simulation(
+            ticks,
+            world=world,
+            client=client,
+            repo=repo,
+            snapshots=snapshots,
+            start_tick=start,
+            sim_config=sim_cfg,
+        )
     )
     typer.echo(
         f"Simulation done: {len(actions)} actions across {ticks} ticks "

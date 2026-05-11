@@ -17,6 +17,7 @@ Key invariants:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -36,6 +37,53 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+_ACTION_TYPES = ["SPEAK", "THINK", "ACT", "MOVE_TO", "REACT", "DO_NOTHING"]
+
+
+def _build_action_tool_schema(char: "Character", world: WorldState) -> dict:
+    """Build per-character JSON Schema for the ``submit_action`` tool.
+
+    Constraints encoded by the schema (enforced server-side by DeepSeek):
+    - ``action_type`` ∈ 6 fixed values
+    - ``target`` ∈ {char_id of others present at same location} ∪
+                   {known location ids} ∪ {""} (empty string = None)
+    - ``content`` ≤ 500 chars (prevents v4-pro reasoning + content overflow)
+    - ``inner_thought`` ≤ 500 chars
+    - ``mood`` ≤ 100 chars
+
+    The empty-string sentinel for ``target`` exists because OpenAI strict mode
+    historically rejects mixed ``["string", "null"]`` types in tool schemas.
+    The retry / validator layer maps "" back to ``None``.
+    """
+    present_char_ids = [
+        c.id for c in world.characters
+        if c.current_location == char.current_location and c.id != char.id and c.alive
+    ]
+    known_loc_ids = [loc.id for loc in world.locations]
+    target_enum = sorted(set(present_char_ids + known_loc_ids)) + [""]
+
+    return {
+        "type": "object",
+        "properties": {
+            "action_type": {"type": "string", "enum": _ACTION_TYPES},
+            "content": {"type": "string", "maxLength": 500},
+            "target": {
+                "type": "string",
+                "enum": target_enum,
+                "description": "character_id or location_id; empty string for none.",
+            },
+            "mood": {"type": "string", "maxLength": 100},
+            "inner_thought": {"type": "string", "maxLength": 500},
+            "triggers_interaction": {"type": "boolean"},
+        },
+        "required": [
+            "action_type", "content", "target", "mood", "inner_thought",
+            "triggers_interaction",
+        ],
+        "additionalProperties": False,
+    }
+
+
 def _action_to_row(action: CharacterAction) -> ActionRow:
     """Convert an immutable ``CharacterAction`` to an ORM ``ActionRow`` with a new UUID."""
     return ActionRow(
@@ -52,7 +100,7 @@ def _action_to_row(action: CharacterAction) -> ActionRow:
     )
 
 
-def run_tick(
+async def run_tick(
     tick_id: int,
     world: WorldState,
     client: DeepSeekClient,
@@ -61,22 +109,23 @@ def run_tick(
     *,
     max_retries: int = 3,
     temperature: float = 0.7,
-    max_tokens: int = 800,
+    max_tokens: int = 16384,
     parent_tick_id: int | None = None,
 ) -> list[CharacterAction]:
-    """Execute a single simulation tick sequentially.
+    """Execute a single simulation tick with concurrent LLM calls.
 
     Steps:
     1. Advance world state: tick_id → *tick_id*, sim_time += tick_interval_hours.
     2. Load system prompt (cached after first call).
-    3. For each character (in list order):
-       a. Build user prompt.
-       b. Call LLM with retry — guaranteed to return a valid ``CharacterAction``.
-       c. Apply action to in-memory character (mood, location, appearance stats).
-       d. Persist action row.
-    4. Rebuild ``present_characters`` on each location.
-    5. Persist full snapshot.
-    6. Log per-tick cost summary.
+    3. Build per-character (user_prompt, tool_schema) snapshots based on the
+       tick-start state — perception is frozen before any LLM call.
+    4. ``asyncio.gather`` all character LLM calls concurrently.  Each call
+       independently retries + repairs JSON; failures fall back to DO_NOTHING.
+    5. Sequentially apply mutations (mood / MOVE_TO / appearance) and persist
+       action rows in input order — deterministic given the gather result.
+    6. Rebuild ``present_characters`` on each location.
+    7. Persist full snapshot.
+    8. Log per-tick cost summary.
 
     Args:
         tick_id:        The tick number to execute (must be > world.tick_id at call time).
@@ -109,24 +158,40 @@ def run_tick(
     # 2. System prompt (module-level cache).
     system_prompt = load_system_prompt()
 
-    # 3. Character loop.
-    actions: list[CharacterAction] = []
-    for char in world.characters:
-        user_prompt = build_user_prompt(char, world, tick_id, world.sim_time)
+    # 3. Freeze per-character perception (prompts + tool schemas) BEFORE any
+    # LLM call — concurrent mode requires all characters see the same
+    # tick-start state.
+    prepared = [
+        (char, build_user_prompt(char, world, tick_id, world.sim_time),
+         _build_action_tool_schema(char, world))
+        for char in world.characters
+    ]
 
-        action = call_with_retry(
-            client=client,
-            system=system_prompt,
-            user=user_prompt,
-            character_id=char.id,
-            tick_id=tick_id,
-            on_log=repo.log_llm,
-            max_attempts=max_retries,
-            base_temperature=temperature,
-            max_tokens=max_tokens,
+    # 4. Concurrent LLM calls via asyncio.gather.  call_with_retry never raises,
+    # so gather will never propagate an exception — every coroutine returns a
+    # valid CharacterAction (possibly DO_NOTHING fallback).
+    actions: list[CharacterAction] = list(
+        await asyncio.gather(
+            *[
+                call_with_retry(
+                    client=client,
+                    system=system_prompt,
+                    user=user_prompt,
+                    character_id=char.id,
+                    tick_id=tick_id,
+                    on_log=repo.log_llm,
+                    max_attempts=max_retries,
+                    base_temperature=temperature,
+                    max_tokens=max_tokens,
+                    tool_schema=tool_schema,
+                )
+                for char, user_prompt, tool_schema in prepared
+            ]
         )
+    )
 
-        # Apply action to in-memory character state.
+    # 5. Sequential mutation + persistence (deterministic order = world.characters).
+    for char, action in zip(world.characters, actions):
         # a. Mood always updates.
         char.current_mood = action.mood
 
@@ -171,9 +236,9 @@ def run_tick(
         char.appearance_count += 1
         char.last_active_tick = tick_id
 
-        # d. Persist action.
+        # e. Persist action.  (Note: `actions` was built by asyncio.gather;
+        # we are NOT appending here — only mutating + saving.)
         repo.save_action(_action_to_row(action))
-        actions.append(action)
 
         logger.info(
             "Tick %d char %s → %s (mood=%r)",
@@ -229,7 +294,7 @@ def _log_tick_summary(tick_id: int, repo: Repository) -> None:
     )
 
 
-def run_simulation(
+async def run_simulation(
     n_ticks: int,
     *,
     world: WorldState,
@@ -257,7 +322,7 @@ def run_simulation(
     """
     max_retries = 3
     temperature = 0.7
-    max_tokens = 800
+    max_tokens = 16384
     if sim_config is not None:
         max_retries = sim_config.max_retries
         temperature = sim_config.temperature
@@ -271,7 +336,7 @@ def run_simulation(
         tick_id = start_tick + 1 + i
         parent = start_tick if (i == 0 and start_tick > 0) else None
 
-        tick_actions = run_tick(
+        tick_actions = await run_tick(
             tick_id=tick_id,
             world=world,
             client=client,

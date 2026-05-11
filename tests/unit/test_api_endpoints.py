@@ -52,7 +52,7 @@ def _make_action(
 def _patch_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     """Patch call_with_retry in the scheduler to return DO_NOTHING actions."""
 
-    def _fake_call_with_retry(
+    async def _fake_call_with_retry(
         client: Any,
         system: str,
         user: str,
@@ -62,7 +62,8 @@ def _patch_llm(monkeypatch: pytest.MonkeyPatch) -> None:
         on_log: Any,
         max_attempts: int = 3,
         base_temperature: float = 0.7,
-        max_tokens: int = 800,
+        max_tokens: int = 16384,
+        tool_schema: dict | None = None,
     ) -> CharacterAction:
         return fallback_do_nothing(character_id, tick_id)
 

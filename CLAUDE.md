@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目状态
 
-**🎉 P0 完成（D1–D12 全部完成）** — 173 单元测试全绿，killer test 通过（2731s，$0.017）
+**🎉 P0 完成（D1–D12）+ P1 准备中** — 全面 async 化，tool-call 模式，173 单元测试全绿
 
 `external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
 
@@ -66,6 +66,9 @@ uv run mypy src/inkfish
 | Killer test D10 — 端到端 10-tick live run（50/50 valid actions，$0.008） | ✅ D10 完成 | `docs/reviews/P0-D10.md` |
 | Killer test D11 — seed→run10→reset5→run5，A/B 内容差异 100% | ✅ D11 完成 | `tests/live/test_killer_reset.py` |
 | D12 — README（212 行）+ black 全量格式化 + 最终静态检查 | ✅ D12 完成 | `README.md` |
+| P1 准备 — async 化（AsyncOpenAI / async run_tick / async call_with_retry） | ✅ 已完成 | `llm/deepseek.py`, `llm/retry.py`, `tick/scheduler.py` |
+| P1 准备 — tool-call 模式（complete_with_tool + _build_action_tool_schema） | ✅ 已完成 | `llm/deepseek.py`, `tick/scheduler.py` |
+| P1 准备 — max_tokens 2500→16384，timeout 60s→120s | ✅ 已完成 | `inkfish.toml`, `config.py` |
 
 ## 核心设计立场
 
@@ -151,7 +154,7 @@ M8 Frontend(React) → M7 API(FastAPI+SSE) → M5 Director / M6 Writer → M3 Ch
 | P7 | 多层空间 + 大规模：300 角色 + 多导演 |
 | P8+ | 实战写一本小说 |
 
-**当前阶段**：**P0 完成**。总计 12 天，3356 行源码，3818 行测试，173 单元测试，1 killer live test。下一阶段：**P1**（互动 + 感知 + 空间：角色互相看见、对话、关系更新）。
+**当前阶段**：**P0 完成，P1 基础设施铺设中**。全面 async 化（P2 并发预热）+ tool-call 强制结构化输出 + 大 token 预算。下一步：P1 互动 budget、感知系统、关系图。
 
 ## 开发约定
 

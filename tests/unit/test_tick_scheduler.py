@@ -89,7 +89,7 @@ def _patch_call_with_retry(
     if plan is None:
         plan = {}
 
-    def _fake_call_with_retry(
+    async def _fake_call_with_retry(
         client: Any,
         system: str,
         user: str,
@@ -99,7 +99,8 @@ def _patch_call_with_retry(
         on_log: Any,
         max_attempts: int = 3,
         base_temperature: float = 0.7,
-        max_tokens: int = 800,
+        max_tokens: int = 16384,
+        tool_schema: dict | None = None,
     ) -> CharacterAction:
         calls.append(
             dict(
@@ -107,6 +108,10 @@ def _patch_call_with_retry(
                 tick_id=tick_id,
                 max_attempts=max_attempts,
                 base_temperature=base_temperature,
+                tool_schema_target_enum=(
+                    tool_schema["properties"]["target"]["enum"]
+                    if tool_schema else None
+                ),
             )
         )
         key = (character_id, tick_id)
@@ -156,7 +161,7 @@ def dummy_client() -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_run_tick_returns_one_action_per_character(
+async def test_run_tick_returns_one_action_per_character(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -169,12 +174,12 @@ def test_run_tick_returns_one_action_per_character(
 
     _patch_call_with_retry(monkeypatch)
 
-    actions = run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    actions = await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     assert len(actions) == len(seeded_world.characters)
 
 
-def test_run_tick_persists_actions_to_db(
+async def test_run_tick_persists_actions_to_db(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -186,13 +191,13 @@ def test_run_tick_persists_actions_to_db(
 
     _patch_call_with_retry(monkeypatch)
 
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     rows = repo.get_actions_at_tick(1)
     assert len(rows) == len(seeded_world.characters)
 
 
-def test_run_tick_writes_snapshot_meta(
+async def test_run_tick_writes_snapshot_meta(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -205,7 +210,7 @@ def test_run_tick_writes_snapshot_meta(
     _patch_call_with_retry(monkeypatch)
 
     n_chars = len(seeded_world.characters)
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     snap = repo.get_snapshot_meta(1)
     assert snap is not None
@@ -213,7 +218,7 @@ def test_run_tick_writes_snapshot_meta(
     assert snap.action_count == n_chars  # one per character
 
 
-def test_run_tick_writes_character_rows_at_tick_id(
+async def test_run_tick_writes_character_rows_at_tick_id(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -224,13 +229,13 @@ def test_run_tick_writes_character_rows_at_tick_id(
     snapshots.save_snapshot(seeded_world, tick_id=0, action_count=0)
 
     _patch_call_with_retry(monkeypatch)
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     char_rows = repo.get_characters_at_tick(1)
     assert len(char_rows) == len(seeded_world.characters)
 
 
-def test_run_tick_writes_location_rows_at_tick_id(
+async def test_run_tick_writes_location_rows_at_tick_id(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -241,13 +246,13 @@ def test_run_tick_writes_location_rows_at_tick_id(
     snapshots.save_snapshot(seeded_world, tick_id=0, action_count=0)
 
     _patch_call_with_retry(monkeypatch)
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     loc_rows = repo.get_locations_at_tick(1)
     assert len(loc_rows) == len(seeded_world.locations)
 
 
-def test_run_tick_advances_world_sim_time_and_tick_id(
+async def test_run_tick_advances_world_sim_time_and_tick_id(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -261,13 +266,13 @@ def test_run_tick_advances_world_sim_time_and_tick_id(
     interval = seeded_world.tick_interval_hours
 
     _patch_call_with_retry(monkeypatch)
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     assert seeded_world.tick_id == 1
     assert seeded_world.sim_time == initial_sim_time + timedelta(hours=interval)
 
 
-def test_run_tick_updates_character_mood(
+async def test_run_tick_updates_character_mood(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -282,14 +287,14 @@ def test_run_tick_updates_character_mood(
     plan = {(target_char.id, 1): elated_action}
 
     _patch_call_with_retry(monkeypatch, plan)
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     updated_char = seeded_world.get_character(target_char.id)
     assert updated_char is not None
     assert updated_char.current_mood == "elated"
 
 
-def test_run_tick_applies_move_to_when_target_known(
+async def test_run_tick_applies_move_to_when_target_known(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -328,14 +333,14 @@ def test_run_tick_applies_move_to_when_target_known(
     plan = {(target_char.id, 1): move_action}
 
     _patch_call_with_retry(monkeypatch, plan)
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     updated = seeded_world.get_character(target_char.id)
     assert updated is not None
     assert updated.current_location == "loc_park"
 
 
-def test_run_tick_ignores_move_to_unknown_target(
+async def test_run_tick_ignores_move_to_unknown_target(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -361,14 +366,14 @@ def test_run_tick_ignores_move_to_unknown_target(
     plan = {(target_char.id, 1): move_action}
 
     _patch_call_with_retry(monkeypatch, plan)
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     updated = seeded_world.get_character(target_char.id)
     assert updated is not None
     assert updated.current_location == original_loc
 
 
-def test_run_tick_increments_appearance_count_and_last_active_tick(
+async def test_run_tick_increments_appearance_count_and_last_active_tick(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -379,7 +384,7 @@ def test_run_tick_increments_appearance_count_and_last_active_tick(
     snapshots.save_snapshot(seeded_world, tick_id=0, action_count=0)
 
     _patch_call_with_retry(monkeypatch)
-    run_tick(1, seeded_world, dummy_client, repo, snapshots)
+    await run_tick(1, seeded_world, dummy_client, repo, snapshots)
 
     for char in seeded_world.characters:
         assert char.appearance_count == 1, f"{char.id}: appearance_count should be 1"
@@ -391,7 +396,7 @@ def test_run_tick_increments_appearance_count_and_last_active_tick(
 # ---------------------------------------------------------------------------
 
 
-def test_run_simulation_runs_n_ticks(
+async def test_run_simulation_runs_n_ticks(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -404,7 +409,7 @@ def test_run_simulation_runs_n_ticks(
     _patch_call_with_retry(monkeypatch)
     n_chars = len(seeded_world.characters)
 
-    actions = run_simulation(
+    actions = await run_simulation(
         3,
         world=seeded_world,
         client=dummy_client,
@@ -420,7 +425,7 @@ def test_run_simulation_runs_n_ticks(
     assert len(all_snaps) == 4  # tick 0 (seed) + tick 1, 2, 3
 
 
-def test_run_simulation_with_start_tick_resumes(
+async def test_run_simulation_with_start_tick_resumes(
     monkeypatch: pytest.MonkeyPatch,
     db_bundle: Any,
     seeded_world: WorldState,
@@ -437,7 +442,7 @@ def test_run_simulation_with_start_tick_resumes(
 
     _patch_call_with_retry(monkeypatch)
 
-    actions = run_simulation(
+    actions = await run_simulation(
         3,
         world=seeded_world,
         client=dummy_client,

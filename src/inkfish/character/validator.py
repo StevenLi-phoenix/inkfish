@@ -200,6 +200,12 @@ def parse_action_json(raw: str, character_id: str, tick_id: int) -> CharacterAct
     data["character_id"] = character_id
     data["tick_id"] = tick_id
 
+    # Tool-call schema represents "no target" as an empty string (JSON Schema
+    # strict enum can't cleanly mix string + null).  Normalise back to None
+    # so the Pydantic target-rule validators apply correctly.
+    if data.get("target") == "":
+        data["target"] = None
+
     try:
         return CharacterAction(**data)
     except Exception as exc:  # ValidationError or TypeError from extra fields via Pydantic

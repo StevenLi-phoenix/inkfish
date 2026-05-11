@@ -16,7 +16,7 @@ import logging
 import time
 from typing import NamedTuple
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pydantic import SecretStr
 
@@ -134,9 +134,9 @@ class DeepSeekClient:
         model: str = "deepseek-v4-pro",
         *,
         base_url: str = "https://api.deepseek.com",
-        timeout: float = 60.0,
+        timeout: float = 120.0,
     ) -> None:
-        self._client = OpenAI(
+        self._client = AsyncOpenAI(
             api_key=api_key.get_secret_value(),
             base_url=base_url,
             timeout=timeout,
@@ -145,7 +145,7 @@ class DeepSeekClient:
         self.model = model
         self.base_url = base_url
 
-    def complete_json(
+    async def complete_json(
         self,
         system: str,
         user: str,
@@ -172,7 +172,7 @@ class DeepSeekClient:
             openai.APIStatusError:     Any other non-2xx response.
         """
         t0 = time.monotonic()
-        completion: ChatCompletion = self._client.chat.completions.create(
+        completion: ChatCompletion = await self._client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system},
@@ -187,6 +187,90 @@ class DeepSeekClient:
         content = completion.choices[0].message.content or ""
         finish_reason = completion.choices[0].finish_reason or "unknown"
 
+        return self._build_result(
+            completion, content, finish_reason, latency_ms
+        )
+
+    async def complete_with_tool(
+        self,
+        system: str,
+        user: str,
+        tool_schema: dict,
+        *,
+        tool_name: str = "submit_action",
+        tool_description: str = "Submit your action for this simulation tick.",
+        temperature: float = 0.7,
+        max_tokens: int = 2500,
+    ) -> LLMResult:
+        """Make a single chat completion using tool calling with strict schema.
+
+        The returned ``LLMResult.content`` is the JSON-stringified ``arguments``
+        from ``tool_calls[0].function``.  ``finish_reason`` is set to the
+        completion's finish_reason (``"tool_calls"`` on success).  When the model
+        produces text without calling the tool, content is the raw message text
+        and finish_reason is ``"stop"`` / ``"length"`` — the caller (retry layer)
+        must treat that as a parse failure.
+
+        Schema enum constraints (e.g. ``target`` ∈ known character_ids) are
+        enforced server-side, so the LLM physically cannot return out-of-enum
+        strings.
+
+        Parameters:
+            system:           System prompt text.
+            user:             User prompt text.
+            tool_schema:      JSON Schema (object) for the tool's ``parameters``.
+            tool_name:        Tool identifier sent to the API.
+            tool_description: Tool description sent to the API.
+            temperature:      Sampling temperature.
+            max_tokens:       Maximum completion tokens (reasoning + arguments).
+
+        Returns:
+            ``LLMResult``.  ``content`` holds tool arguments JSON on success.
+        """
+        t0 = time.monotonic()
+        completion: ChatCompletion = await self._client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool_name,
+                        "description": tool_description,
+                        "parameters": tool_schema,
+                    },
+                }
+            ],
+            # Do NOT pass tool_choice — v4-pro (reasoner) rejects forced choice.
+            # System prompt must instruct the model to call the tool.
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        latency_ms = int((time.monotonic() - t0) * 1000)
+
+        msg = completion.choices[0].message
+        finish_reason = completion.choices[0].finish_reason or "unknown"
+
+        # Prefer tool_calls.arguments; fall back to raw content (parse failure path).
+        content: str
+        if msg.tool_calls:
+            content = msg.tool_calls[0].function.arguments or ""
+        else:
+            content = msg.content or ""
+
+        return self._build_result(completion, content, finish_reason, latency_ms)
+
+    def _build_result(
+        self,
+        completion: ChatCompletion,
+        content: str,
+        finish_reason: str,
+        latency_ms: int,
+    ) -> LLMResult:
+        """Shared post-processing: token accounting + cost + LLMResult assembly."""
         # Handle rare 5xx where usage field is absent.
         if completion.usage is None:
             logger.warning(

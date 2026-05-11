@@ -72,7 +72,7 @@ class FakeDeepSeekClient:
         self._call_index = 0
         self.recorded_temps: list[float] = []
 
-    def complete_json(
+    async def complete_json(
         self,
         system: str,
         user: str,
@@ -89,6 +89,24 @@ class FakeDeepSeekClient:
             raise item
         return item
 
+    async def complete_with_tool(
+        self,
+        system: str,
+        user: str,
+        tool_schema: dict,
+        *,
+        tool_name: str = "submit_action",
+        tool_description: str = "",
+        temperature: float = 0.7,
+        max_tokens: int = 16384,
+    ) -> LLMResult:
+        """Same scripted behaviour as complete_json — tool_schema is ignored
+        by the fake; tests that use tool_schema only need to verify the path
+        is taken, which they do by inspecting recorded_temps / call_index."""
+        return await self.complete_json(
+            system, user, temperature=temperature, max_tokens=max_tokens
+        )
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -101,7 +119,7 @@ def _collect_logs(logs: list[LLMLogRow]) -> None:
     pass
 
 
-def _run(
+async def _run(
     client: FakeDeepSeekClient,
     *,
     character_id: str = "char_001",
@@ -111,7 +129,7 @@ def _run(
 ) -> tuple[CharacterAction, list[LLMLogRow]]:
     """Helper: run call_with_retry, collect logs, return (action, log_rows)."""
     rows: list[LLMLogRow] = []
-    action = call_with_retry(
+    action = await call_with_retry(
         client,  # type: ignore[arg-type]  # FakeDeepSeekClient is duck-typed
         system="You output json.",
         user="Return a json action object.",
@@ -129,10 +147,10 @@ def _run(
 # ---------------------------------------------------------------------------
 
 
-def test_first_attempt_success_no_retry() -> None:
+async def test_first_attempt_success_no_retry() -> None:
     """Fake returns valid JSON on attempt 1 → one log row, attempt=1, no error."""
     client = FakeDeepSeekClient([_make_result()])
-    action, rows = _run(client)
+    action, rows = await _run(client)
 
     assert isinstance(action, CharacterAction)
     assert action.action_type == ActionType.THINK
@@ -146,10 +164,10 @@ def test_first_attempt_success_no_retry() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_retries_on_invalid_json_then_succeeds() -> None:
+async def test_retries_on_invalid_json_then_succeeds() -> None:
     """Attempt 1 returns garbage, attempt 2 returns valid JSON."""
     client = FakeDeepSeekClient([_make_result(content=_INVALID_JSON), _make_result()])
-    action, rows = _run(client)
+    action, rows = await _run(client)
 
     assert isinstance(action, CharacterAction)
     assert action.action_type == ActionType.THINK
@@ -165,7 +183,7 @@ def test_retries_on_invalid_json_then_succeeds() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_temperature_decays_across_attempts() -> None:
+async def test_temperature_decays_across_attempts() -> None:
     """Temperature decreases by 0.1 per attempt: 0.7 → 0.6 → 0.5."""
     client = FakeDeepSeekClient(
         [
@@ -174,7 +192,7 @@ def test_temperature_decays_across_attempts() -> None:
             _make_result(),  # succeeds on attempt 3
         ]
     )
-    _run(client, max_attempts=3, base_temperature=0.7)
+    await _run(client, max_attempts=3, base_temperature=0.7)
 
     assert len(client.recorded_temps) == 3
     assert abs(client.recorded_temps[0] - 0.7) < 1e-9
@@ -187,7 +205,7 @@ def test_temperature_decays_across_attempts() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_all_attempts_fail_returns_fallback_do_nothing() -> None:
+async def test_all_attempts_fail_returns_fallback_do_nothing() -> None:
     """All 3 attempts return garbage → DO_NOTHING action + 4 log rows (3 + 1 synthetic)."""
     client = FakeDeepSeekClient(
         [
@@ -196,7 +214,7 @@ def test_all_attempts_fail_returns_fallback_do_nothing() -> None:
             _make_result(content=_INVALID_JSON),
         ]
     )
-    action, rows = _run(client, max_attempts=3)
+    action, rows = await _run(client, max_attempts=3)
 
     assert isinstance(action, CharacterAction)
     assert action.action_type == ActionType.DO_NOTHING
@@ -213,7 +231,7 @@ def test_all_attempts_fail_returns_fallback_do_nothing() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_429_retries_internally_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_429_retries_internally_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
     """RateLimitError triggers tenacity inner-retry and the call ultimately succeeds.
 
     Strategy: patch ``tenacity.nap.sleep`` to eliminate backoff delays, then
@@ -247,7 +265,7 @@ def test_429_retries_internally_then_succeeds(monkeypatch: pytest.MonkeyPatch) -
     scripts: list[LLMResult | BaseException] = [rate_limit_error] * 5 + [_make_result()]
     client = FakeDeepSeekClient(scripts)
 
-    action, rows = _run(client, max_attempts=3)
+    action, rows = await _run(client, max_attempts=3)
 
     assert isinstance(action, CharacterAction)
     assert action.action_type == ActionType.THINK
@@ -262,17 +280,17 @@ def test_429_retries_internally_then_succeeds(monkeypatch: pytest.MonkeyPatch) -
 # ---------------------------------------------------------------------------
 
 
-def test_correction_prefix_added_on_retry() -> None:
+async def test_correction_prefix_added_on_retry() -> None:
     """On attempt 2, the user prompt includes a corrective prefix mentioning 'JSON'."""
     user_prompts: list[str] = []
 
     class RecordingFakeClient(FakeDeepSeekClient):
-        def complete_json(self, system: str, user: str, **kwargs: Any) -> LLMResult:
+        async def complete_json(self, system: str, user: str, **kwargs: Any) -> LLMResult:
             user_prompts.append(user)
-            return super().complete_json(system, user, **kwargs)
+            return await super().complete_json(system, user, **kwargs)
 
     client = RecordingFakeClient([_make_result(content=_INVALID_JSON), _make_result()])
-    _run(client)
+    await _run(client)
 
     assert len(user_prompts) == 2
     # Attempt 1: original prompt, no prefix.
@@ -287,7 +305,7 @@ def test_correction_prefix_added_on_retry() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_log_row_fields_populated() -> None:
+async def test_log_row_fields_populated() -> None:
     """Log rows contain prompt, response, tokens, cost, latency, finish_reason."""
     result = _make_result(
         prompt_tokens=200,
@@ -298,7 +316,7 @@ def test_log_row_fields_populated() -> None:
         finish_reason="stop",
     )
     client = FakeDeepSeekClient([result])
-    _, rows = _run(client)
+    _, rows = await _run(client)
 
     row = rows[0]
     assert row.prompt  # non-empty
@@ -321,7 +339,7 @@ def test_log_row_fields_populated() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_action_character_id_tick_id_trusted_args() -> None:
+async def test_action_character_id_tick_id_trusted_args() -> None:
     """LLM content with wrong character_id/tick_id is overridden by caller args."""
     # JSON with forged identity fields.
     forged_json = (
@@ -330,7 +348,7 @@ def test_action_character_id_tick_id_trusted_args() -> None:
         '"character_id": "evil_forgery", "tick_id": 9999}'
     )
     client = FakeDeepSeekClient([_make_result(content=forged_json)])
-    action, _ = _run(client, character_id="char_001", tick_id=5)
+    action, _ = await _run(client, character_id="char_001", tick_id=5)
 
     assert action.character_id == "char_001"
     assert action.tick_id == 5
@@ -341,26 +359,26 @@ def test_action_character_id_tick_id_trusted_args() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_fallback_action_uses_trusted_ids() -> None:
+async def test_fallback_action_uses_trusted_ids() -> None:
     """Even the fallback DO_NOTHING action uses caller-supplied ids."""
     client = FakeDeepSeekClient([_make_result(content=_INVALID_JSON)] * 3)
-    action, _ = _run(client, character_id="char_xyz", tick_id=42, max_attempts=3)
+    action, _ = await _run(client, character_id="char_xyz", tick_id=42, max_attempts=3)
 
     assert action.character_id == "char_xyz"
     assert action.tick_id == 42
 
 
-def test_single_attempt_only() -> None:
+async def test_single_attempt_only() -> None:
     """max_attempts=1 → one call, if it fails → immediate fallback."""
     client = FakeDeepSeekClient([_make_result(content=_INVALID_JSON)])
-    action, rows = _run(client, max_attempts=1)
+    action, rows = await _run(client, max_attempts=1)
 
     assert action.action_type == ActionType.DO_NOTHING
     # 1 failed row + 1 synthetic fallback row.
     assert len(rows) == 2
 
 
-def test_connection_error_logged_and_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_connection_error_logged_and_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     """APIConnectionError triggers inner tenacity retry; outer attempt logs error."""
     import time as _time
 
@@ -373,7 +391,7 @@ def test_connection_error_logged_and_retried(monkeypatch: pytest.MonkeyPatch) ->
 
     scripts: list[LLMResult | BaseException] = [conn_error] * 5 + [_make_result()]
     client = FakeDeepSeekClient(scripts)
-    action, rows = _run(client)
+    action, rows = await _run(client)
 
     assert action.action_type == ActionType.THINK
     assert len(rows) == 2
@@ -381,10 +399,10 @@ def test_connection_error_logged_and_retried(monkeypatch: pytest.MonkeyPatch) ->
     assert rows[1].error is None
 
 
-def test_log_rows_have_unique_ids() -> None:
+async def test_log_rows_have_unique_ids() -> None:
     """Each log row has a distinct UUID id."""
     client = FakeDeepSeekClient([_make_result(content=_INVALID_JSON), _make_result()])
-    _, rows = _run(client)
+    _, rows = await _run(client)
 
     ids = [row.id for row in rows]
     assert len(ids) == len(set(ids))
