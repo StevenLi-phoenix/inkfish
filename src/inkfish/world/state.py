@@ -1,12 +1,12 @@
 """inkfish.world.state — In-memory world view shared by snapshot, repo, and scheduler.
 
-P0: pure data containers only. No behavior methods — those come in P1.
+P0: pure data containers plus a small set of query helpers.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 
 @dataclass
@@ -63,3 +63,34 @@ class WorldState:
     )
     characters: list[Character] = field(default_factory=list)
     locations: list[Location] = field(default_factory=list)
+    tick_interval_hours: int = 1  # P0: 1 tick == 1 simulated hour
+
+    # ------------------------------------------------------------------
+    # Query helpers
+    # ------------------------------------------------------------------
+
+    def get_character(self, char_id: str) -> Character | None:
+        """Return the character with *char_id*, or ``None`` if not found."""
+        for c in self.characters:
+            if c.id == char_id:
+                return c
+        return None
+
+    def get_location(self, loc_id: str) -> Location | None:
+        """Return the location with *loc_id*, or ``None`` if not found."""
+        for loc in self.locations:
+            if loc.id == loc_id:
+                return loc
+        return None
+
+    def characters_at_location(self, loc_id: str) -> list[Character]:
+        """Return all alive characters whose ``current_location`` matches *loc_id*."""
+        return [c for c in self.characters if c.current_location == loc_id and c.alive]
+
+    def advance_time(self, hours: int) -> None:
+        """Advance ``sim_time`` by *hours* and ``tick_id`` by *hours* / ``tick_interval_hours``.
+
+        P0: ``tick_interval_hours == 1``, so ``advance_time(2)`` adds 2 ticks and 2 hours.
+        """
+        self.sim_time = self.sim_time + timedelta(hours=hours)
+        self.tick_id += hours // self.tick_interval_hours

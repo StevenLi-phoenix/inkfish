@@ -12,12 +12,10 @@ Design notes:
 
 from __future__ import annotations
 
-import uuid
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from openai import APIConnectionError, APITimeoutError, RateLimitError
+from openai import APIConnectionError, RateLimitError
 
 from inkfish.character.schema import ActionType, CharacterAction
 from inkfish.llm.deepseek import LLMResult
@@ -219,19 +217,26 @@ def test_all_attempts_fail_returns_fallback_do_nothing() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_429_retries_internally_then_succeeds() -> None:
+def test_429_retries_internally_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
     """RateLimitError triggers tenacity inner-retry and the call ultimately succeeds.
 
-    When tenacity exhausts its inner retries (after 5 attempts), the exception
-    propagates to the outer loop as a network error, which logs a row and
-    advances to the next outer attempt.  Then the next outer attempt succeeds.
+    Strategy: patch ``tenacity.nap.sleep`` to eliminate backoff delays, then
+    exhaust the inner tenacity retries (5x) on outer attempt 1.  Outer attempt 2
+    succeeds, producing 2 log rows total:
+    - row 1: failed outer attempt (network error)
+    - row 2: successful outer attempt
 
-    Because tenacity retries internally (up to 5x) before propagating, the
-    outer on_log callback receives:
-    - 1 row for the failed attempt (network error)
-    - 1 row for the successful attempt
-    Total: 2 rows.
+    Implementation note: tenacity's ``Retrying`` calls ``self.sleep`` which
+    defaults to ``tenacity.nap.sleep``.  Because the ``@retry``-decorated
+    ``_network_call`` closure is re-created on each outer loop iteration (not
+    cached at module level), patching ``tenacity.nap.sleep`` does NOT intercept
+    the backoff.  Instead we patch ``time.sleep`` directly, which
+    ``tenacity.nap.sleep`` delegates to.
     """
+    import time as _time
+
+    monkeypatch.setattr(_time, "sleep", lambda _seconds: None)
+
     import httpx as _httpx
 
     _req = _httpx.Request("POST", "https://api.deepseek.com")
@@ -241,13 +246,10 @@ def test_429_retries_internally_then_succeeds() -> None:
         body=None,
     )
 
-    # Script: always raise RateLimitError for the first outer attempt's inner calls.
-    # We give it enough to exhaust tenacity (5 inner retries) + 1 success for attempt 2.
-    # But FakeDeepSeekClient gives one item per outer call; tenacity will call
-    # complete_json multiple times per outer attempt.  We need 5+1 scripts.
+    # Script: 5 RateLimitErrors (exhaust tenacity stop_after_attempt(5)) +
+    # 1 success for outer attempt 2.
     scripts: list[LLMResult | BaseException] = (
-        [rate_limit_error] * 5  # enough for tenacity stop_after_attempt(5)
-        + [_make_result()]
+        [rate_limit_error] * 5 + [_make_result()]
     )
     client = FakeDeepSeekClient(scripts)
 
@@ -366,9 +368,16 @@ def test_single_attempt_only() -> None:
     assert len(rows) == 2
 
 
-def test_connection_error_logged_and_retried() -> None:
+def test_connection_error_logged_and_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     """APIConnectionError triggers inner tenacity retry; outer attempt logs error."""
-    conn_error = APIConnectionError(request=None)  # type: ignore[arg-type]
+    import time as _time
+
+    monkeypatch.setattr(_time, "sleep", lambda _seconds: None)
+
+    import httpx as _httpx
+
+    _req = _httpx.Request("POST", "https://api.deepseek.com")
+    conn_error = APIConnectionError(request=_req)
 
     scripts: list[LLMResult | BaseException] = (
         [conn_error] * 5 + [_make_result()]

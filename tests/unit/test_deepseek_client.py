@@ -5,9 +5,6 @@ All HTTP calls are mocked with respx so no real network traffic occurs.
 
 from __future__ import annotations
 
-import json
-import time
-
 import httpx
 import pytest
 import respx

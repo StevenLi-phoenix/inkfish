@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目状态
 
-**当前阶段：P0 进行中（D1–D4 完成，D5 代码已落地，102 个测试全绿）**
+**当前阶段：P0 进行中（D1–D5 完成，D6 进行中，125 单元测试全绿）**
 
 `external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
 
@@ -50,7 +50,10 @@ uv run mypy src/inkfish
 | M3 Character — JSON repair + parse_action_json + fallback | ✅ D4 完成 | `src/inkfish/character/validator.py` |
 | M4 LLM Gateway — DeepSeekClient（OpenAI SDK wrapper） | ✅ D5 完成 | `src/inkfish/llm/deepseek.py` |
 | M4 LLM Gateway — call_with_retry + tenacity + LLMLogRow | ✅ D5 完成 | `src/inkfish/llm/retry.py` |
-| Tick Scheduler | ⬜ 待 D6–D7 | `src/inkfish/tick/` |
+| World State — query helpers (get_character/location, advance_time) | ✅ D6 完成 | `src/inkfish/world/state.py` |
+| World Seed — seed_loader（load_seed_file + seed_world） | ✅ D6 完成 | `src/inkfish/world/seed_loader.py` |
+| World Seed — data/seed/world.json（5 角色 + 1 地点） | ✅ D6 完成 | `data/seed/world.json` |
+| Tick Scheduler | ⬜ 待 D7 | `src/inkfish/tick/` |
 | M7 API（FastAPI REST） | ⬜ 待 D9 | `src/inkfish/api/` |
 | CLI（typer commands） | 🔧 占位 | `src/inkfish/cli.py` |
 
@@ -138,7 +141,7 @@ M8 Frontend(React) → M7 API(FastAPI+SSE) → M5 Director / M6 Writer → M3 Ch
 | P7 | 多层空间 + 大规模：300 角色 + 多导演 |
 | P8+ | 实战写一本小说 |
 
-**当前阶段**：P0 进行中（D1–D5 完成，下一步 D6–D7: Tick Scheduler）。
+**当前阶段**：P0 进行中（D1–D6 完成，下一步 D7: Tick Scheduler）。
 
 ## 开发约定
 

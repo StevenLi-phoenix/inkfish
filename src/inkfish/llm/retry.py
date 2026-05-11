@@ -23,7 +23,6 @@ import logging
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
 
 from openai import APIConnectionError, APITimeoutError, RateLimitError
 from tenacity import (
@@ -119,8 +118,8 @@ def call_with_retry(
         temperature = max(0.0, base_temperature - (attempt - 1) * 0.1)
 
         # Inner helper: handles transient network errors with tenacity.
-        # Defined per-loop-iteration so `temperature` and `current_user` are
-        # captured correctly by the closure.
+        # Default arguments bind the loop-local values at definition time,
+        # avoiding the B023 "closure over loop variable" bug.
         _temp = temperature
         _user = current_user
 
@@ -130,22 +129,23 @@ def call_with_retry(
             stop=stop_after_attempt(5),
             reraise=True,
         )
-        def _network_call() -> tuple[LLMResult, str | None]:
-            """Returns (result, error_str_or_None)."""
-            result = client.complete_json(
+        def _network_call(
+            _bound_user: str = _user, _bound_temp: float = _temp
+        ) -> LLMResult:
+            """Execute one HTTP call; returns LLMResult."""
+            return client.complete_json(
                 system,
-                _user,
-                temperature=_temp,
+                _bound_user,
+                temperature=_bound_temp,
                 max_tokens=max_tokens,
             )
-            return result, None
 
         # --- Execute the network call ---
         result: LLMResult | None = None
         network_error: str | None = None
 
         try:
-            result, _ = _network_call()
+            result = _network_call()
         except Exception as exc:
             # Transient errors exhausted all inner retries, or a non-transient
             # error occurred (e.g. 5xx).  Log and advance to next outer attempt.

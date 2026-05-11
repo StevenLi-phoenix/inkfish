@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy.engine import Engine
 
 from inkfish.storage.db import create_db_engine, init_db
+from inkfish.world.state import WorldState
 
 
 @pytest.fixture
@@ -47,3 +48,11 @@ def tmp_db_engine(tmp_path: Path) -> Generator[Engine, None, None]:
     init_db(engine)
     yield engine
     engine.dispose()
+
+
+@pytest.fixture
+def seed_world_state(repo_root: Path) -> WorldState:
+    """Return a WorldState loaded from the canonical seed file (no DB access)."""
+    from inkfish.world.seed_loader import load_seed_file
+
+    return load_seed_file(repo_root / "data" / "seed" / "world.json")
