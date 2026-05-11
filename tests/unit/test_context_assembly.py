@@ -54,9 +54,9 @@ def test_persona_block_byte_stable_across_calls(seed_world_state: WorldState) ->
 
     first = build_persona_block(char)
     for _ in range(4):
-        assert build_persona_block(char) == first, (
-            "build_persona_block returned different output on repeated call"
-        )
+        assert (
+            build_persona_block(char) == first
+        ), "build_persona_block returned different output on repeated call"
 
 
 def test_persona_blocks_unique_per_character(seed_world_state: WorldState) -> None:
@@ -80,14 +80,14 @@ def test_persona_block_no_dynamic_fields(seed_world_state: WorldState) -> None:
     assert not re.search(r"tick\s*\d", block), "Persona block contains tick reference"
 
     # current_mood should not appear verbatim in persona block
-    assert char.current_mood not in block, (
-        "Persona block contains current_mood — it should only appear in perception block"
-    )
+    assert (
+        char.current_mood not in block
+    ), "Persona block contains current_mood — it should only appear in perception block"
 
     # current_location id should not appear verbatim in persona block
-    assert char.current_location not in block, (
-        "Persona block contains current_location id — it should only appear in perception block"
-    )
+    assert (
+        char.current_location not in block
+    ), "Persona block contains current_location id — it should only appear in perception block"
 
 
 def test_persona_block_size_meets_cache_threshold(seed_world_state: WorldState) -> None:
@@ -119,9 +119,9 @@ def test_routine_key_order_deterministic(seed_world_state: WorldState) -> None:
         for line in block_a.splitlines()
         if line.startswith("    ") and "：" in line
     ]
-    assert routine_keys_in_block == sorted(routine_keys_in_block), (
-        f"Routine keys are not sorted: {routine_keys_in_block}"
-    )
+    assert routine_keys_in_block == sorted(
+        routine_keys_in_block
+    ), f"Routine keys are not sorted: {routine_keys_in_block}"
 
 
 # ---------------------------------------------------------------------------
@@ -131,17 +131,12 @@ def test_routine_key_order_deterministic(seed_world_state: WorldState) -> None:
 
 def test_memory_block_byte_stable_in_p0(seed_world_state: WorldState) -> None:
     """Block [2] is byte-identical (literal constant) for all characters."""
-    results = [
-        build_memory_block(char, seed_world_state)
-        for char in seed_world_state.characters
-    ]
+    results = [build_memory_block(char, seed_world_state) for char in seed_world_state.characters]
     assert len(set(results)) == 1, "Memory block differs between characters"
 
     # Also verify calling twice for same character is identical
     char = seed_world_state.characters[0]
-    assert build_memory_block(char, seed_world_state) == build_memory_block(
-        char, seed_world_state
-    )
+    assert build_memory_block(char, seed_world_state) == build_memory_block(char, seed_world_state)
 
 
 # ---------------------------------------------------------------------------
@@ -157,9 +152,7 @@ def test_perception_block_changes_with_tick(seed_world_state: WorldState) -> Non
 
     block_tick0 = build_perception_block(char, seed_world_state, 0, sim_time)
     block_tick1 = build_perception_block(char, seed_world_state, 1, sim_time)
-    assert block_tick0 != block_tick1, (
-        "Perception block did not change when tick_id changed"
-    )
+    assert block_tick0 != block_tick1, "Perception block did not change when tick_id changed"
 
 
 def test_perception_block_changes_with_sim_time(seed_world_state: WorldState) -> None:
@@ -190,12 +183,10 @@ def test_perception_block_omits_self_from_others_list(
     assert others_section_start != -1, "Perception block missing 在场其他人 section"
 
     others_section = block[others_section_start:]
-    assert char.name not in others_section, (
-        f"Character's own name ({char.name}) appeared in 在场其他人"
-    )
-    assert char.id not in others_section, (
-        f"Character's own id ({char.id}) appeared in 在场其他人"
-    )
+    assert (
+        char.name not in others_section
+    ), f"Character's own name ({char.name}) appeared in 在场其他人"
+    assert char.id not in others_section, f"Character's own id ({char.id}) appeared in 在场其他人"
 
 
 def test_perception_block_contains_location_info(seed_world_state: WorldState) -> None:
@@ -244,9 +235,9 @@ def test_full_prompt_includes_word_json(seed_world_state: WorldState) -> None:
     sim_time = datetime(2026, 1, 15, 8, 0, 0, tzinfo=UTC)
 
     prompt = build_user_prompt(char, seed_world_state, 0, sim_time)
-    assert "json" in prompt, (
-        "User prompt must contain the literal word 'json' for DeepSeek JSON mode"
-    )
+    assert (
+        "json" in prompt
+    ), "User prompt must contain the literal word 'json' for DeepSeek JSON mode"
 
 
 def test_full_prompt_ends_with_json_instruction(seed_world_state: WorldState) -> None:
@@ -256,9 +247,9 @@ def test_full_prompt_ends_with_json_instruction(seed_world_state: WorldState) ->
     sim_time = datetime(2026, 1, 15, 8, 0, 0, tzinfo=UTC)
 
     prompt = build_user_prompt(char, seed_world_state, 0, sim_time)
-    assert prompt.rstrip().endswith("请以 json 对象输出本回合的 action。"), (
-        "User prompt does not end with JSON output instruction"
-    )
+    assert prompt.rstrip().endswith(
+        "请以 json 对象输出本回合的 action。"
+    ), "User prompt does not end with JSON output instruction"
 
 
 # ---------------------------------------------------------------------------

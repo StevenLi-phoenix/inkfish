@@ -149,7 +149,25 @@ def run_tick(
                     action.target,
                 )
 
-        # c. Appearance stats.
+        # c. SPEAK / REACT: warn when target is not a known character id at this
+        # location.  P0 only logs; P1's can_perform() will reject and re-prompt.
+        if action.action_type in (ActionType.SPEAK, ActionType.REACT) and action.target:
+            present_char_ids = {
+                c.id for c in world.characters if c.current_location == char.current_location
+            }
+            if action.target not in present_char_ids:
+                logger.warning(
+                    "Tick %d: char %s %s target=%r is not a known character at %s "
+                    "(present=%s) — P0 silently accepts, P1 will reject",
+                    tick_id,
+                    char.id,
+                    action.action_type.value,
+                    action.target,
+                    char.current_location,
+                    sorted(present_char_ids - {char.id}),
+                )
+
+        # d. Appearance stats.
         char.appearance_count += 1
         char.last_active_tick = tick_id
 
@@ -168,8 +186,7 @@ def run_tick(
     # 4. Rebuild present_characters on each location.
     for loc in world.locations:
         loc.present_characters = [
-            c.id for c in world.characters
-            if c.current_location == loc.id and c.alive
+            c.id for c in world.characters if c.current_location == loc.id and c.alive
         ]
 
     # 5. Persist snapshot.
@@ -248,9 +265,7 @@ def run_simulation(
 
     all_actions: list[CharacterAction] = []
 
-    logger.info(
-        "run_simulation: n_ticks=%d start_tick=%d", n_ticks, start_tick
-    )
+    logger.info("run_simulation: n_ticks=%d start_tick=%d", n_ticks, start_tick)
 
     for i in range(n_ticks):
         tick_id = start_tick + 1 + i

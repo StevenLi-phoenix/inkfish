@@ -256,14 +256,14 @@ class TestStripHelpers:
     # 18. _strip_code_fences — ```json variant
     # ------------------------------------------------------------------
     def test_strip_code_fences_json(self) -> None:
-        raw = "```json\n{\"a\":1}\n```"
+        raw = '```json\n{"a":1}\n```'
         assert _strip_code_fences(raw) == '{"a":1}'
 
     # ------------------------------------------------------------------
     # 19. _strip_code_fences — unlabeled variant
     # ------------------------------------------------------------------
     def test_strip_code_fences_unlabeled(self) -> None:
-        raw = "```\n{\"a\":1}\n```"
+        raw = '```\n{"a":1}\n```'
         assert _strip_code_fences(raw) == '{"a":1}'
 
     def test_strip_code_fences_no_fence_unchanged(self) -> None:
@@ -350,7 +350,7 @@ class TestParseActionJson:
         result = parse_action_json(raw, "char_001", 5)
         assert result is not None
         assert result.character_id == "char_001"  # trusted arg wins
-        assert result.tick_id == 5               # trusted arg wins
+        assert result.tick_id == 5  # trusted arg wins
 
     # ------------------------------------------------------------------
     # 25. Missing required field → None

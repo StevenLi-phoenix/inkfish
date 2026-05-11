@@ -142,9 +142,7 @@ def _fix_truncated_json(raw: str) -> str:
     return s
 
 
-def parse_action_json(
-    raw: str, character_id: str, tick_id: int
-) -> CharacterAction | None:
+def parse_action_json(raw: str, character_id: str, tick_id: int) -> CharacterAction | None:
     """Parse *raw* LLM output into a ``CharacterAction``.
 
     Pipeline:
@@ -194,9 +192,7 @@ def parse_action_json(
                 return None
 
     if not isinstance(data, dict):
-        logger.debug(
-            "parse_action_json: top-level JSON is not an object (got %s)", type(data)
-        )
+        logger.debug("parse_action_json: top-level JSON is not an object (got %s)", type(data))
         return None
 
     # Overwrite character_id and tick_id with trusted caller values — never
@@ -216,9 +212,7 @@ def parse_action_json(
         return None
 
 
-def fallback_do_nothing(
-    character_id: str, tick_id: int, mood: str = "neutral"
-) -> CharacterAction:
+def fallback_do_nothing(character_id: str, tick_id: int, mood: str = "neutral") -> CharacterAction:
     """Return a structurally valid DO_NOTHING action.
 
     Used when all retry attempts are exhausted and the LLM output cannot be

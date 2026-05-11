@@ -74,9 +74,9 @@ def test_init_db_creates_all_tables(in_memory_engine: object) -> None:
     engine = in_memory_engine  # already initted by fixture
     table_names = set(inspect(engine).get_table_names())
     expected = {"characters", "actions", "locations", "snapshots", "llm_logs"}
-    assert expected == table_names, (
-        f"Missing tables: {expected - table_names}. Extra: {table_names - expected}"
-    )
+    assert (
+        expected == table_names
+    ), f"Missing tables: {expected - table_names}. Extra: {table_names - expected}"
 
 
 # ---------------------------------------------------------------------------
@@ -152,17 +152,29 @@ def test_action_pk_uuid_independent_of_tick(in_memory_engine: object) -> None:
 
     # Same uuid twice must fail
     with SessionLocal() as session:
-        session.add(ActionRow(
-            id=fixed_id, tick_id=0, character_id="char_x",
-            action_type="THINK", content="First", mood="calm",
-        ))
+        session.add(
+            ActionRow(
+                id=fixed_id,
+                tick_id=0,
+                character_id="char_x",
+                action_type="THINK",
+                content="First",
+                mood="calm",
+            )
+        )
         session.commit()
 
     with SessionLocal() as session:
-        session.add(ActionRow(
-            id=fixed_id, tick_id=0, character_id="char_x",
-            action_type="THINK", content="Duplicate", mood="calm",
-        ))
+        session.add(
+            ActionRow(
+                id=fixed_id,
+                tick_id=0,
+                character_id="char_x",
+                action_type="THINK",
+                content="Duplicate",
+                mood="calm",
+            )
+        )
         with pytest.raises(IntegrityError):
             session.commit()
 
@@ -198,24 +210,26 @@ def test_llm_log_round_trip(in_memory_engine: object) -> None:
     ts = datetime.now(UTC)
 
     with SessionLocal() as session:
-        session.add(LLMLogRow(
-            id=log_id,
-            tick_id=3,
-            character_id="char_b",
-            provider="deepseek",
-            model="deepseek-v4-pro",
-            prompt="Hello",
-            response='{"action_type":"THINK"}',
-            prompt_tokens=120,
-            response_tokens=45,
-            cached_tokens=80,
-            cost_usd=0.00123,
-            latency_ms=512,
-            finish_reason="stop",
-            error=None,
-            attempt=2,
-            created_at=ts,
-        ))
+        session.add(
+            LLMLogRow(
+                id=log_id,
+                tick_id=3,
+                character_id="char_b",
+                provider="deepseek",
+                model="deepseek-v4-pro",
+                prompt="Hello",
+                response='{"action_type":"THINK"}',
+                prompt_tokens=120,
+                response_tokens=45,
+                cached_tokens=80,
+                cost_usd=0.00123,
+                latency_ms=512,
+                finish_reason="stop",
+                error=None,
+                attempt=2,
+                created_at=ts,
+            )
+        )
         session.commit()
 
     with SessionLocal() as session:
@@ -243,11 +257,14 @@ def test_json_columns_round_trip(in_memory_engine: object) -> None:
 
     with SessionLocal() as session:
         session.add(_new_char("char_c", 0, routine=routine_val))
-        session.add(_new_location(
-            "loc_x", 0,
-            present_characters=present_val,
-            connected_to=connected_val,
-        ))
+        session.add(
+            _new_location(
+                "loc_x",
+                0,
+                present_characters=present_val,
+                connected_to=connected_val,
+            )
+        )
         session.commit()
 
     with SessionLocal() as session:

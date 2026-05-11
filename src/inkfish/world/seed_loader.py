@@ -27,10 +27,22 @@ logger = logging.getLogger(__name__)
 # Canonical set of 16 MBTI types (uppercase)
 _VALID_MBTI: frozenset[str] = frozenset(
     {
-        "INTJ", "INTP", "ENTJ", "ENTP",
-        "INFJ", "INFP", "ENFJ", "ENFP",
-        "ISTJ", "ISFJ", "ESTJ", "ESFJ",
-        "ISTP", "ISFP", "ESTP", "ESFP",
+        "INTJ",
+        "INTP",
+        "ENTJ",
+        "ENTP",
+        "INFJ",
+        "INFP",
+        "ENFJ",
+        "ENFP",
+        "ISTJ",
+        "ISFJ",
+        "ESTJ",
+        "ESFJ",
+        "ISTP",
+        "ISFP",
+        "ESTP",
+        "ESFP",
     }
 )
 
@@ -42,14 +54,22 @@ _MIN_APPEARANCE_LEN: int = 80
 
 def _validate_character(raw: dict[str, Any]) -> None:
     """Raise :class:`ValueError` if *raw* is missing required fields or has bad values."""
-    required = ("id", "name", "mbti", "age", "background", "appearance", "personality",
-                "current_location", "current_mood", "routine")
+    required = (
+        "id",
+        "name",
+        "mbti",
+        "age",
+        "background",
+        "appearance",
+        "personality",
+        "current_location",
+        "current_mood",
+        "routine",
+    )
     for field_name in required:
         if field_name not in raw:
             char_id = raw.get("id", "<unknown>")
-            raise ValueError(
-                f"Character seed is missing required field '{field_name}': {char_id}"
-            )
+            raise ValueError(f"Character seed is missing required field '{field_name}': {char_id}")
 
     mbti = str(raw["mbti"]).upper()
     if mbti not in _VALID_MBTI:
@@ -81,9 +101,7 @@ def _validate_location(raw: dict[str, Any]) -> None:
     for field_name in required:
         if field_name not in raw:
             loc_id = raw.get("id", "<unknown>")
-            raise ValueError(
-                f"Location seed is missing required field '{field_name}': {loc_id}"
-            )
+            raise ValueError(f"Location seed is missing required field '{field_name}': {loc_id}")
 
 
 def _parse_location(raw: dict[str, Any]) -> Location:
@@ -186,8 +204,11 @@ def seed_world(
     logger.info("Resetting DB to fresh slate before seeding...")
     snapshots.reset(to_tick_id=-1)
 
-    logger.info("Upserting %d characters and %d locations at tick_id=0...",
-                len(world.characters), len(world.locations))
+    logger.info(
+        "Upserting %d characters and %d locations at tick_id=0...",
+        len(world.characters),
+        len(world.locations),
+    )
     for char in world.characters:
         repo.upsert_character(char, tick_id=0)
     for loc in world.locations:

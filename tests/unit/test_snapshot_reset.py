@@ -166,9 +166,7 @@ def test_save_snapshot_at_multiple_ticks_creates_independent_rows(
 # ---------------------------------------------------------------------------
 
 
-def test_load_world_reconstructs_state(
-    snap_mgr: SnapshotManager, fake_world: WorldState
-) -> None:
+def test_load_world_reconstructs_state(snap_mgr: SnapshotManager, fake_world: WorldState) -> None:
     # Save tick=5 with original mood
     world_5 = WorldState(
         tick_id=5,

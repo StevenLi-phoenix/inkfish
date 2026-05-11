@@ -112,9 +112,7 @@ def _patch_call_with_retry(
         key = (character_id, tick_id)
         return plan.get(key, fallback_do_nothing(character_id, tick_id))
 
-    monkeypatch.setattr(
-        "inkfish.tick.scheduler.call_with_retry", _fake_call_with_retry
-    )
+    monkeypatch.setattr("inkfish.tick.scheduler.call_with_retry", _fake_call_with_retry)
     return calls
 
 
@@ -280,9 +278,7 @@ def test_run_tick_updates_character_mood(
     snapshots.save_snapshot(seeded_world, tick_id=0, action_count=0)
 
     target_char = seeded_world.characters[0]
-    elated_action = _make_action(
-        target_char.id, tick_id=1, mood="elated"
-    )
+    elated_action = _make_action(target_char.id, tick_id=1, mood="elated")
     plan = {(target_char.id, 1): elated_action}
 
     _patch_call_with_retry(monkeypatch, plan)

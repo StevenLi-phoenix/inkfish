@@ -164,9 +164,7 @@ class SnapshotManager:
     def list_snapshots(self) -> list[SnapshotInfo]:
         """Return metadata for all snapshots, sorted by tick_id ascending."""
         with self._sf() as session:
-            result = session.execute(
-                select(SnapshotRow).order_by(SnapshotRow.tick_id)
-            )
+            result = session.execute(select(SnapshotRow).order_by(SnapshotRow.tick_id))
             rows = result.scalars().all()
             return [
                 SnapshotInfo(
@@ -208,9 +206,7 @@ class SnapshotManager:
                 ).scalars()
             )
             loc_rows = list(
-                session.execute(
-                    select(LocationRow).where(LocationRow.tick_id == tick_id)
-                ).scalars()
+                session.execute(select(LocationRow).where(LocationRow.tick_id == tick_id)).scalars()
             )
 
             # Reconstruct sim_time from snapshot timestamp (approximate)

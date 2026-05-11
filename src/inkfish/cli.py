@@ -114,9 +114,7 @@ def run(
 
 @app.command()
 def reset(
-    tick_id: int = typer.Argument(
-        ..., help="Reset world to this tick (deletes data beyond)"
-    ),
+    tick_id: int = typer.Argument(..., help="Reset world to this tick (deletes data beyond)"),
 ) -> None:
     """Reset world to a given tick (deletes data beyond)."""
     from inkfish.config import load_config
@@ -162,9 +160,7 @@ def list_snapshots() -> None:
 def serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Bind host"),
     port: int = typer.Option(8000, "--port", help="Bind port"),
-    reload: bool = typer.Option(
-        False, "--reload", help="Enable auto-reload (dev mode)"
-    ),
+    reload: bool = typer.Option(False, "--reload", help="Enable auto-reload (dev mode)"),
 ) -> None:
     """Start FastAPI dev server."""
     import uvicorn

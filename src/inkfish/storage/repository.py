@@ -161,25 +161,19 @@ class Repository:
     def get_characters_at_tick(self, tick_id: int) -> list[CharacterRow]:
         """Return all character rows snapshotted at *tick_id*."""
         with self._sf() as session:
-            result = session.execute(
-                select(CharacterRow).where(CharacterRow.tick_id == tick_id)
-            )
+            result = session.execute(select(CharacterRow).where(CharacterRow.tick_id == tick_id))
             return list(result.scalars().all())
 
     def get_locations_at_tick(self, tick_id: int) -> list[LocationRow]:
         """Return all location rows snapshotted at *tick_id*."""
         with self._sf() as session:
-            result = session.execute(
-                select(LocationRow).where(LocationRow.tick_id == tick_id)
-            )
+            result = session.execute(select(LocationRow).where(LocationRow.tick_id == tick_id))
             return list(result.scalars().all())
 
     def get_actions_at_tick(self, tick_id: int) -> list[ActionRow]:
         """Return all action rows for *tick_id*."""
         with self._sf() as session:
-            result = session.execute(
-                select(ActionRow).where(ActionRow.tick_id == tick_id)
-            )
+            result = session.execute(select(ActionRow).where(ActionRow.tick_id == tick_id))
             return list(result.scalars().all())
 
     def get_actions_in_range(self, start_tick: int, end_tick: int) -> list[ActionRow]:
@@ -207,9 +201,7 @@ class Repository:
     def list_snapshots(self) -> list[SnapshotRow]:
         """Return all snapshot index rows, ordered by tick_id ascending."""
         with self._sf() as session:
-            result = session.execute(
-                select(SnapshotRow).order_by(SnapshotRow.tick_id)
-            )
+            result = session.execute(select(SnapshotRow).order_by(SnapshotRow.tick_id))
             return list(result.scalars().all())
 
     def get_llm_logs(self, tick_id: int | None = None) -> list[LLMLogRow]:

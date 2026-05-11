@@ -32,9 +32,7 @@ _REQUIRES_TARGET: frozenset[ActionType] = frozenset(
 )
 
 # Action types that MUST NOT have a target.
-_FORBIDS_TARGET: frozenset[ActionType] = frozenset(
-    {ActionType.THINK, ActionType.DO_NOTHING}
-)
+_FORBIDS_TARGET: frozenset[ActionType] = frozenset({ActionType.THINK, ActionType.DO_NOTHING})
 
 
 class CharacterAction(BaseModel):
@@ -70,15 +68,11 @@ class CharacterAction(BaseModel):
 
         if at in _REQUIRES_TARGET:
             if not t or not t.strip():
-                raise ValueError(
-                    f"action_type {at.value} requires a non-empty target, got {t!r}"
-                )
+                raise ValueError(f"action_type {at.value} requires a non-empty target, got {t!r}")
 
         if at in _FORBIDS_TARGET:
             if t is not None:
-                raise ValueError(
-                    f"action_type {at.value} must have target=None, got {t!r}"
-                )
+                raise ValueError(f"action_type {at.value} must have target=None, got {t!r}")
 
         return self
 

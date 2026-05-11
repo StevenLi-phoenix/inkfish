@@ -58,11 +58,7 @@ def start(
     Raises:
         400: No characters found at the requested start tick (seed first).
     """
-    start_tick = (
-        req.from_tick
-        if req.from_tick is not None
-        else (repo.get_latest_tick_id() or 0)
-    )
+    start_tick = req.from_tick if req.from_tick is not None else (repo.get_latest_tick_id() or 0)
 
     # Validate characters exist at start_tick
     try:

@@ -44,9 +44,7 @@ logger = logging.getLogger(__name__)
 _TRANSIENT_ERRORS = (RateLimitError, APIConnectionError, APITimeoutError)
 
 # Corrective prefix injected into the user prompt on retry (non-first attempts).
-_CORRECTION_PREFIX = (
-    "上次响应非法 JSON: {error}. 只输出 JSON. 不要 markdown 围栏. 不要散文.\n\n"
-)
+_CORRECTION_PREFIX = "上次响应非法 JSON: {error}. 只输出 JSON. 不要 markdown 围栏. 不要散文.\n\n"
 
 
 def _make_log_row(
@@ -201,8 +199,7 @@ def call_with_retry(
             )
             on_log(row)
             logger.debug(
-                "call_with_retry: success on attempt %d/%d for char=%s tick=%d "
-                "action_type=%s",
+                "call_with_retry: success on attempt %d/%d for char=%s tick=%d " "action_type=%s",
                 attempt,
                 max_attempts,
                 character_id,
@@ -212,9 +209,7 @@ def call_with_retry(
             return action
 
         # PARSE FAILURE — log the failed attempt and prepare retry.
-        truncated_by_length = (
-            result.finish_reason == "length" and not result.content.strip()
-        )
+        truncated_by_length = result.finish_reason == "length" and not result.content.strip()
         if truncated_by_length:
             parse_error = (
                 f"length_truncation: response_tokens={result.response_tokens} "

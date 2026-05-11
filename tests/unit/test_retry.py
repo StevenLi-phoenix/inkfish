@@ -82,9 +82,7 @@ class FakeDeepSeekClient:
     ) -> LLMResult:
         self.recorded_temps.append(temperature)
         if self._call_index >= len(self._scripts):
-            raise IndexError(
-                f"FakeDeepSeekClient: no script for call #{self._call_index + 1}"
-            )
+            raise IndexError(f"FakeDeepSeekClient: no script for call #{self._call_index + 1}")
         item = self._scripts[self._call_index]
         self._call_index += 1
         if isinstance(item, BaseException):
@@ -150,9 +148,7 @@ def test_first_attempt_success_no_retry() -> None:
 
 def test_retries_on_invalid_json_then_succeeds() -> None:
     """Attempt 1 returns garbage, attempt 2 returns valid JSON."""
-    client = FakeDeepSeekClient(
-        [_make_result(content=_INVALID_JSON), _make_result()]
-    )
+    client = FakeDeepSeekClient([_make_result(content=_INVALID_JSON), _make_result()])
     action, rows = _run(client)
 
     assert isinstance(action, CharacterAction)
@@ -248,9 +244,7 @@ def test_429_retries_internally_then_succeeds(monkeypatch: pytest.MonkeyPatch) -
 
     # Script: 5 RateLimitErrors (exhaust tenacity stop_after_attempt(5)) +
     # 1 success for outer attempt 2.
-    scripts: list[LLMResult | BaseException] = (
-        [rate_limit_error] * 5 + [_make_result()]
-    )
+    scripts: list[LLMResult | BaseException] = [rate_limit_error] * 5 + [_make_result()]
     client = FakeDeepSeekClient(scripts)
 
     action, rows = _run(client, max_attempts=3)
@@ -277,9 +271,7 @@ def test_correction_prefix_added_on_retry() -> None:
             user_prompts.append(user)
             return super().complete_json(system, user, **kwargs)
 
-    client = RecordingFakeClient(
-        [_make_result(content=_INVALID_JSON), _make_result()]
-    )
+    client = RecordingFakeClient([_make_result(content=_INVALID_JSON), _make_result()])
     _run(client)
 
     assert len(user_prompts) == 2
@@ -379,9 +371,7 @@ def test_connection_error_logged_and_retried(monkeypatch: pytest.MonkeyPatch) ->
     _req = _httpx.Request("POST", "https://api.deepseek.com")
     conn_error = APIConnectionError(request=_req)
 
-    scripts: list[LLMResult | BaseException] = (
-        [conn_error] * 5 + [_make_result()]
-    )
+    scripts: list[LLMResult | BaseException] = [conn_error] * 5 + [_make_result()]
     client = FakeDeepSeekClient(scripts)
     action, rows = _run(client)
 
@@ -393,9 +383,7 @@ def test_connection_error_logged_and_retried(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_log_rows_have_unique_ids() -> None:
     """Each log row has a distinct UUID id."""
-    client = FakeDeepSeekClient(
-        [_make_result(content=_INVALID_JSON), _make_result()]
-    )
+    client = FakeDeepSeekClient([_make_result(content=_INVALID_JSON), _make_result()])
     _, rows = _run(client)
 
     ids = [row.id for row in rows]

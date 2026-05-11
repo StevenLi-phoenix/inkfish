@@ -58,9 +58,7 @@ def build_persona_block(character: Character) -> str:
     Routine keys are sorted alphabetically to eliminate dict-ordering
     nondeterminism.
     """
-    routine_lines = "\n".join(
-        f"    {k}：{v}" for k, v in sorted(character.routine.items())
-    )
+    routine_lines = "\n".join(f"    {k}：{v}" for k, v in sorted(character.routine.items()))
     return (
         f"人设：\n"
         f"  ID：{character.id}\n"
@@ -122,18 +120,16 @@ def build_perception_block(
     loc_desc = location.description if location else ""
 
     others_at_loc = [
-        c
-        for c in world.characters_at_location(character.current_location)
-        if c.id != character.id
+        c for c in world.characters_at_location(character.current_location) if c.id != character.id
     ]
 
     if others_at_loc:
         others_lines = "\n".join(
-            f"    - {c.name}（{c.mbti}, {c.age}岁）：外貌 {c.appearance}"
+            f"    - [id={c.id}] {c.name}（{c.mbti}, {c.age}岁）：外貌 {c.appearance}"
             for c in others_at_loc
         )
         others_section = (
-            "  在场其他人（你不认识他们的内心，只能看到他们上一回合的外显动作）：\n"
+            "  在场其他人（target 必须用 [id=...] 中的字符串，不要用姓名或自创变体）：\n"
             f"{others_lines}"
         )
     else:
@@ -164,8 +160,5 @@ def build_user_prompt(
     memory = build_memory_block(character, world)
     perception = build_perception_block(character, world, tick_id, sim_time)
     return (
-        f"{persona}\n\n"
-        f"{memory}\n\n"
-        f"{perception}\n\n"
-        "请以 json 对象输出本回合的 action。"
+        f"{persona}\n\n" f"{memory}\n\n" f"{perception}\n\n" "请以 json 对象输出本回合的 action。"
     )

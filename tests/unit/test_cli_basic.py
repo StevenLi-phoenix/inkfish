@@ -108,9 +108,9 @@ def test_cli_list_snapshots_after_seed(
     lines = [line.strip() for line in list_result.output.splitlines() if line.strip()]
     # Find the tick-0 line
     tick_0_lines = [line for line in lines if line.startswith("0 ")]
-    assert len(tick_0_lines) == 1, (
-        f"Expected exactly one tick-0 snapshot line, got: {list_result.output!r}"
-    )
+    assert (
+        len(tick_0_lines) == 1
+    ), f"Expected exactly one tick-0 snapshot line, got: {list_result.output!r}"
 
 
 # ---------------------------------------------------------------------------

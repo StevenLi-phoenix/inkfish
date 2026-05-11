@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _PRICING_USD_PER_M: dict[str, dict[str, float]] = {
     "deepseek-v4-pro": {
-        "input": 0.30 * 0.25,         # $0.075 / M
-        "output": 0.50 * 0.25,         # $0.125 / M
-        "cached_input": 0.03 * 0.25,   # $0.0075 / M (cache hits are 1/10 of input)
+        "input": 0.30 * 0.25,  # $0.075 / M
+        "output": 0.50 * 0.25,  # $0.125 / M
+        "cached_input": 0.03 * 0.25,  # $0.0075 / M (cache hits are 1/10 of input)
     },
     "deepseek-v4-flash": {
         "input": 0.30,

@@ -81,9 +81,7 @@ class ActionRow(Base):
     mood: Mapped[str]
     inner_thought: Mapped[str] = mapped_column(Text, default="")
     triggers_interaction: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     def __repr__(self) -> str:
         return (
@@ -129,9 +127,7 @@ class SnapshotRow(Base):
     __tablename__ = "snapshots"
 
     tick_id: Mapped[int] = mapped_column(primary_key=True)
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC)
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     parent_tick_id: Mapped[int | None] = mapped_column(default=None)
     char_count: Mapped[int]
     action_count: Mapped[int]
@@ -175,9 +171,7 @@ class LLMLogRow(Base):
     error: Mapped[str | None] = mapped_column(Text, default=None)
     attempt: Mapped[int] = mapped_column(default=1)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     def __repr__(self) -> str:
         return (

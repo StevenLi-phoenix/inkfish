@@ -58,9 +58,7 @@ class WorldState:
     """
 
     tick_id: int = 0
-    sim_time: datetime = field(
-        default_factory=lambda: datetime(2026, 1, 1, 8, 0, 0, tzinfo=UTC)
-    )
+    sim_time: datetime = field(default_factory=lambda: datetime(2026, 1, 1, 8, 0, 0, tzinfo=UTC))
     characters: list[Character] = field(default_factory=list)
     locations: list[Location] = field(default_factory=list)
     tick_interval_hours: int = 1  # P0: 1 tick == 1 simulated hour

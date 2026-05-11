@@ -197,9 +197,7 @@ def test_complete_json_raises_on_rate_limit() -> None:
     error_body = {"error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}}
 
     with respx.mock:
-        respx.post(_COMPLETIONS_URL).mock(
-            return_value=httpx.Response(429, json=error_body)
-        )
+        respx.post(_COMPLETIONS_URL).mock(return_value=httpx.Response(429, json=error_body))
         with pytest.raises(RateLimitError):
             _client().complete_json(system="sys", user="return json")
 

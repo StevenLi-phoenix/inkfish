@@ -103,9 +103,7 @@ class TestSimConfigDefaultsWhenTomlSectionMissing:
 class TestSettingsLoadsFromEnvFile:
     """Settings reads DEEPSEEK_API_KEY from a .env file via pydantic-settings."""
 
-    def test_loads_from_dotenv_file(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_loads_from_dotenv_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         env_file = tmp_path / ".env"
         env_file.write_text("DEEPSEEK_API_KEY=sk-from-dotenv-file\n")
         # Remove any real env var so the .env file value wins
@@ -123,9 +121,7 @@ class TestSettingsLoadsFromEnvFile:
         settings = Settings(_env_file=str(env_file))  # type: ignore[call-arg]
         assert settings.deepseek_api_key.get_secret_value() == "sk-from-env-var"
 
-    def test_db_url_default(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_db_url_default(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-db-test")
         settings = Settings()
         assert settings.db_url == "sqlite:///data/inkfish.db"

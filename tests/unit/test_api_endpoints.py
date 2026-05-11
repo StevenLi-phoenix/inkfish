@@ -201,9 +201,7 @@ def test_simulation_start_400_when_no_seed(api_client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_simulation_start_runs_n_ticks(
-    seeded_client: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_simulation_start_runs_n_ticks(seeded_client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """POST /simulation/start n_ticks=2 produces 10 ActionRows and 3 SnapshotRows."""
     client, world = seeded_client
     _patch_llm(monkeypatch)
@@ -250,9 +248,7 @@ def test_simulation_pause_returns_noop(api_client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_simulation_reset_deletes_data(
-    seeded_client: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_simulation_reset_deletes_data(seeded_client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """After running 3 ticks, reset to tick=0 leaves only tick 0 snapshot."""
     client, _ = seeded_client
     _patch_llm(monkeypatch)

@@ -113,9 +113,7 @@ def load_config(
         temperature=llm_section.get("temperature", SimConfig.temperature),
         max_tokens=llm_section.get("max_tokens", SimConfig.max_tokens),
         log_level=llm_section.get("log_level", SimConfig.log_level),
-        tick_interval_hours=sim_section.get(
-            "tick_interval_hours", SimConfig.tick_interval_hours
-        ),
+        tick_interval_hours=sim_section.get("tick_interval_hours", SimConfig.tick_interval_hours),
         max_steps=sim_section.get("max_steps", SimConfig.max_steps),
         max_concurrent_llm_calls=sim_section.get(
             "max_concurrent_llm_calls", SimConfig.max_concurrent_llm_calls
@@ -132,9 +130,7 @@ def load_config(
         pacing_stale_threshold=dir_section.get(
             "pacing_stale_threshold", SimConfig.pacing_stale_threshold
         ),
-        default_provider=routing_section.get(
-            "default_provider", SimConfig.default_provider
-        ),
+        default_provider=routing_section.get("default_provider", SimConfig.default_provider),
         default_model=routing_section.get("default_model", SimConfig.default_model),
         hot_topics_enabled=hot_section.get("enabled", SimConfig.hot_topics_enabled),
         hot_topics_source=hot_section.get("source", SimConfig.hot_topics_source),
@@ -148,9 +144,7 @@ def load_config(
 
     # db_url from toml [storage] takes precedence if provided; env var wins at Settings level
     db_url_override = storage_section.get("db_url")
-    settings = Settings(
-        **({} if db_url_override is None else {"db_url": db_url_override})
-    )
+    settings = Settings(**({} if db_url_override is None else {"db_url": db_url_override}))
 
     logging.basicConfig(level=sim_cfg.log_level)
     return settings, sim_cfg

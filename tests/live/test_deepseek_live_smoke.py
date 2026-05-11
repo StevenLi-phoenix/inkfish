@@ -26,15 +26,16 @@ def test_live_deepseek_smoke() -> None:
         temperature=0.1,
         max_tokens=200,
     )
-    assert result.content.strip().startswith("{"), (
-        f"Expected JSON object, got: {result.content[:200]!r}"
-    )
+    assert result.content.strip().startswith(
+        "{"
+    ), f"Expected JSON object, got: {result.content[:200]!r}"
     assert result.prompt_tokens > 0, "prompt_tokens should be positive"
     assert result.response_tokens > 0, "response_tokens should be positive"
     assert result.latency_ms > 0, "latency_ms should be positive"
-    assert result.finish_reason in {"stop", "length"}, (
-        f"Unexpected finish_reason: {result.finish_reason!r}"
-    )
+    assert result.finish_reason in {
+        "stop",
+        "length",
+    }, f"Unexpected finish_reason: {result.finish_reason!r}"
     assert result.cost_usd >= 0.0, "cost_usd should be non-negative"
     # cached_tokens may be 0 on first call — that's OK.
     assert result.cached_tokens >= 0, "cached_tokens should be non-negative"
