@@ -69,6 +69,7 @@ uv run mypy src/inkfish
 | P1 准备 — async 化（AsyncOpenAI / async run_tick / async call_with_retry） | ✅ 已完成 | `llm/deepseek.py`, `llm/retry.py`, `tick/scheduler.py` |
 | P1 准备 — tool-call 模式（complete_with_tool + _build_action_tool_schema） | ✅ 已完成 | `llm/deepseek.py`, `tick/scheduler.py` |
 | P1 准备 — max_tokens 2500→16384，timeout 60s→120s | ✅ 已完成 | `inkfish.toml`, `config.py` |
+| P1 准备 — cache-aware 调度（首角色顺序暖场→其余并发），INFO 级 LLM 指标日志 | ✅ 已完成 | `tick/scheduler.py`, `llm/retry.py` |
 
 ## 核心设计立场
 

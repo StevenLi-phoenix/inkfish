@@ -212,13 +212,19 @@ async def call_with_retry(
                 attempt=attempt,
             )
             on_log(row)
-            logger.debug(
-                "call_with_retry: success on attempt %d/%d for char=%s tick=%d " "action_type=%s",
-                attempt,
-                max_attempts,
+            logger.info(
+                "LLM ok char=%s tick=%d attempt=%d/%d action=%s "
+                "wall=%dms tokens=%d/%d cached=%d cost=$%.5f",
                 character_id,
                 tick_id,
+                attempt,
+                max_attempts,
                 action.action_type.value,
+                result.latency_ms,
+                result.prompt_tokens,
+                result.response_tokens,
+                result.cached_tokens,
+                result.cost_usd,
             )
             return action
 
