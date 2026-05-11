@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目状态
 
-**当前阶段：P0 进行中（D1–D7 完成，D8 代码已落地，159 单元测试全绿）**
+**当前阶段：P0 进行中（D1–D9 完成，173 单元测试全绿，killer test 待 D10）**
 
 `external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
 
@@ -58,7 +58,11 @@ uv run mypy src/inkfish
 | Tick Scheduler（run_tick / run_simulation，P0 单线程） | ✅ D8 完成 | `src/inkfish/tick/scheduler.py` |
 | CLI（seed/run/reset/list-snapshots/serve 完整命令） | ✅ D8 完成 | `src/inkfish/cli.py` |
 | Settings INKFISH_DB_URL 别名（测试隔离） | ✅ D8 完成 | `src/inkfish/config.py` |
-| M7 API（FastAPI app 占位，D9 接 routers） | 🔧 占位 | `src/inkfish/api/main.py` |
+| M7 API — schemas（12 Pydantic DTOs） | ✅ D9 完成 | `src/inkfish/api/schemas.py` |
+| M7 API — deps（lru_cache DI factories） | ✅ D9 完成 | `src/inkfish/api/deps.py` |
+| M7 API — 5 routers（health/simulation/tick/snapshot/character） | ✅ D9 完成 | `src/inkfish/api/routers/` |
+| M7 API — main.py（CORS + 5 routers 完整 app） | ✅ D9 完成 | `src/inkfish/api/main.py` |
+| Killer test（live 10-tick + reset 验证） | ⬜ 待 D10 | `tests/live/` |
 
 ## 核心设计立场
 
@@ -144,7 +148,7 @@ M8 Frontend(React) → M7 API(FastAPI+SSE) → M5 Director / M6 Writer → M3 Ch
 | P7 | 多层空间 + 大规模：300 角色 + 多导演 |
 | P8+ | 实战写一本小说 |
 
-**当前阶段**：P0 进行中（D1–D8 完成，下一步 D9: FastAPI routers + killer test）。
+**当前阶段**：P0 进行中（D1–D9 完成，下一步 D10: killer test — live 10-tick + reset）。
 
 ## 开发约定
 

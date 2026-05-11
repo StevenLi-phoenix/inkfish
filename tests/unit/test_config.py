@@ -34,7 +34,7 @@ class TestLoadConfigReturnsSettingsAndSimConfig:
         _, sim_cfg = load_config(repo_root / "inkfish.toml")
         assert sim_cfg.max_retries == 3
         assert sim_cfg.temperature == pytest.approx(0.7)
-        assert sim_cfg.max_tokens == 800
+        assert sim_cfg.max_tokens == 2500  # v4-pro reasoning + content budget
         assert sim_cfg.log_level == "INFO"
 
     def test_simconfig_simulation_fields_from_toml(

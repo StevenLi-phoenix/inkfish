@@ -31,5 +31,8 @@ suggested_split_ticks = 50
 [llm]
 max_retries = 3
 temperature = 0.7
-max_tokens = 800
+# v4-pro 是 reasoner 模型：reasoning_tokens 先消耗预算，content 才会输出。
+# 800 实测会让 ~35% 调用 finish_reason=length 且 content 为空。
+# 2500 给 reasoning (~1500-2000) + content (~500-800) 留余量。
+max_tokens = 2500
 log_level = "INFO"

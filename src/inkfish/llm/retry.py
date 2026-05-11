@@ -113,6 +113,11 @@ def call_with_retry(
     """
     last_parse_error: str = "no_attempts"
     current_user = user
+    # DeepSeek v4-pro is a reasoner: reasoning_tokens consume the budget before
+    # any content is emitted.  If finish_reason == "length" with empty content,
+    # we expand the budget on the next attempt (capped at 8000, DeepSeek's max).
+    current_max_tokens = max_tokens
+    _MAX_TOKENS_CEIL = 8000
 
     for attempt in range(1, max_attempts + 1):
         temperature = max(0.0, base_temperature - (attempt - 1) * 0.1)
@@ -122,6 +127,7 @@ def call_with_retry(
         # avoiding the B023 "closure over loop variable" bug.
         _temp = temperature
         _user = current_user
+        _max_tok = current_max_tokens
 
         @retry(
             retry=retry_if_exception_type(_TRANSIENT_ERRORS),
@@ -130,14 +136,16 @@ def call_with_retry(
             reraise=True,
         )
         def _network_call(
-            _bound_user: str = _user, _bound_temp: float = _temp
+            _bound_user: str = _user,
+            _bound_temp: float = _temp,
+            _bound_max_tok: int = _max_tok,
         ) -> LLMResult:
             """Execute one HTTP call; returns LLMResult."""
             return client.complete_json(
                 system,
                 _bound_user,
                 temperature=_bound_temp,
-                max_tokens=max_tokens,
+                max_tokens=_bound_max_tok,
             )
 
         # --- Execute the network call ---
@@ -204,13 +212,26 @@ def call_with_retry(
             return action
 
         # PARSE FAILURE — log the failed attempt and prepare retry.
-        parse_error = f"invalid_json_or_schema: content={result.content[:120]!r}"
+        truncated_by_length = (
+            result.finish_reason == "length" and not result.content.strip()
+        )
+        if truncated_by_length:
+            parse_error = (
+                f"length_truncation: response_tokens={result.response_tokens} "
+                f"exhausted max_tokens={current_max_tokens} before any content "
+                f"(v4-pro reasoning consumed full budget)"
+            )
+        else:
+            parse_error = f"invalid_json_or_schema: content={result.content[:120]!r}"
         logger.warning(
-            "call_with_retry: JSON parse failed on attempt %d/%d for char=%s tick=%d",
+            "call_with_retry: JSON parse failed on attempt %d/%d for char=%s tick=%d "
+            "(finish_reason=%s, truncated=%s)",
             attempt,
             max_attempts,
             character_id,
             tick_id,
+            result.finish_reason,
+            truncated_by_length,
         )
         row = _make_log_row(
             tick_id=tick_id,
@@ -225,6 +246,15 @@ def call_with_retry(
         on_log(row)
         last_parse_error = parse_error
 
+        # On length truncation, expand the token budget for the next attempt
+        # (×1.5, capped at 8000) instead of changing the prompt — the model
+        # didn't fail to follow instructions, it just ran out of room.
+        if truncated_by_length:
+            current_max_tokens = min(int(current_max_tokens * 1.5), _MAX_TOKENS_CEIL)
+            logger.info(
+                "call_with_retry: expanding max_tokens to %d for next attempt",
+                current_max_tokens,
+            )
         # Build corrective prefix for the next attempt.
         current_user = _CORRECTION_PREFIX.format(error=parse_error) + user
 
