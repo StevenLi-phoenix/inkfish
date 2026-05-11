@@ -4,13 +4,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目状态
 
-INKFISH 目前处于**设计阶段**，尚无生产代码。`external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
+**当前阶段：P0 进行中（D1 + D2 + D3 已完成，约 32 个测试全绿）**
+
+`external/mirofish` 是 git submodule（灵感来源 MiroFish 的参考实现，只读）。
 
 **文档阅读顺序**：
 - `docs/01-mirofish.md` — 参考架构：MiroFish 七步骨架（INKFISH 灵感来源）
 - `docs/02-tavern.md` — 参考架构：SillyTavern 资产格式与教训
 - `docs/03-design.md` — **INKFISH 系统设计规格**（权威设计文档）
 - `docs/04-build.md` — 实施路线图（阶段切片 P0–P8）
+- `docs/plans/P0-plan.md` — P0 详细实施计划（D1–D11）
+- `docs/reviews/P0-D1.md`, `P0-D2.md` — D1/D2 交付审查
+
+## 开发环境
+
+```bash
+source .venv/bin/activate       # 激活 venv（Python 3.12）
+uv run pytest -q                # 跑测试
+uv run python -m inkfish version
+uv run ruff check src/ tests/
+uv run mypy src/inkfish
+```
+
+依赖在 `pyproject.toml`，锁定在 `uv.lock`（提交到 repo）。
+配置文件：`inkfish.toml`（运行时参数）+ `.env`（秘钥，gitignored）。
+
+## P0 实现进度
+
+| 模块 | 状态 | 文件 |
+|---|---|---|
+| M0 Config | ✅ D1 完成 | `src/inkfish/config.py` |
+| M1 Storage — ORM Models | ✅ D2 完成 | `src/inkfish/storage/models.py` |
+| M1 Storage — DB Engine + WAL | ✅ D2 完成 | `src/inkfish/storage/db.py` |
+| M1 Storage — SnapshotManager | ✅ D3 完成 | `src/inkfish/storage/snapshot.py` |
+| M1 Storage — Repository CRUD | ✅ D3 完成 | `src/inkfish/storage/repository.py` |
+| World State（内存视图） | ✅ D3 完成 | `src/inkfish/world/state.py` |
+| M3 Character（schema/context/validator） | ⬜ 待 D4 | `src/inkfish/character/` |
+| M4 LLM Gateway（DeepSeek + retry） | ⬜ 待 D5 | `src/inkfish/llm/` |
+| Tick Scheduler | ⬜ 待 D6–D7 | `src/inkfish/tick/` |
+| M7 API（FastAPI REST） | ⬜ 待 D9 | `src/inkfish/api/` |
+| CLI（typer commands） | 🔧 占位 | `src/inkfish/cli.py` |
 
 ## 核心设计立场
 
@@ -96,7 +129,7 @@ M8 Frontend(React) → M7 API(FastAPI+SSE) → M5 Director / M6 Writer → M3 Ch
 | P7 | 多层空间 + 大规模：300 角色 + 多导演 |
 | P8+ | 实战写一本小说 |
 
-**当前阶段**：P0 之前（设计已锁定，即将进入 P0）。
+**当前阶段**：P0 进行中（D1–D3 完成，下一步 D4: M3 Character schema + context + validator）。
 
 ## 开发约定
 
