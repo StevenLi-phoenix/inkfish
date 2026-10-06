@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- README 顶部增加 Unpolished 提示：说明项目处于早期 P0 阶段、接口和文档可能变动、尚无 LICENSE。
+  Files: README.md
 - INKFISH P0 PoC: 5 自治角色在咖啡馆并发跑 10 tick，每 tick 输出合法 action JSON，支持 reset/fork。详细路线见 docs/04-build.md。
   Files: src/inkfish/**, tests/**, docs/plans/P0-plan.md
 - M0 Config 模块（Settings + SimConfig），从 .env + inkfish.toml 加载。
